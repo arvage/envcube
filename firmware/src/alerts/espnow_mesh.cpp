@@ -161,7 +161,7 @@ void EspNowMesh::loop() {
 }
 
 // ── _onReceive (Core 3.x signature) ─────────────────────────
-void EspNowMesh::_onReceive(const esp_now_recv_info_t* info,
+void EspNowMesh::_onReceive(const esp_now_recv_info* info,
                              const uint8_t* data, int len) {
     uint8_t idx = _rxWrite;
     if (!_rxBuf[idx].ready && len > 0) {

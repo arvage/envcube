@@ -6,6 +6,7 @@
 #include <Arduino.h>
 #include "../config.h"       // MUST come before use of ESPNOW_MAX_PEERS
 #include "../alert_types.h"
+#include <esp_now.h>
 
 // ── Packet types ─────────────────────────────────────────────
 enum class EspNowPacketType : uint8_t {
@@ -61,7 +62,7 @@ public:
 
 private:
     // ESP-NOW Core 3.x recv callback signature
-    static void _onReceive(const esp_now_recv_info_t* info,
+    static void _onReceive(const esp_now_recv_info* info,
                            const uint8_t* data, int len);
 
     static void _handleHello(const uint8_t* mac,
