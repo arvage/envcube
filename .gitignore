@@ -1,0 +1,31 @@
+# PlatformIO build output
+firmware/.pio/
+firmware/.pioenvs/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Credentials — NEVER commit these
+firmware/main/secrets.h
+*.secret
+*.key
+
+# PlatformIO local config
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs
+*.log
+
+# Audio source files (large)
+tools/audio/*.wav
+tools/audio/*.aiff
