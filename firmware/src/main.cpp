@@ -98,9 +98,9 @@ void setup() {
     xTaskCreatePinnedToCore(taskSensors,      "sensors",
                             8192, nullptr, 3, nullptr, 0);
     xTaskCreatePinnedToCore(taskDisplay,      "display",
-                            4096, nullptr, 2, nullptr, 1);
+                            4096, nullptr, 2, nullptr, 0);
     xTaskCreatePinnedToCore(taskConnectivity, "connectivity",
-                            8192, nullptr, 1, nullptr, 1);
+                            8192, nullptr, 1, nullptr, 0);
 
     Serial.println("[Boot] EnvCube running");
     Led::setAlert(AlertLevel::ALL_CLEAR);

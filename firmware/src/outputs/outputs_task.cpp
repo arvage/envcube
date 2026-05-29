@@ -1,7 +1,7 @@
 // ============================================================
 //  EnvCube — Outputs task implementation
 //  Drives LED animations, buzzer patterns, DFPlayer health
-//  at 50Hz (20ms tick). Pinned to core 1 (same as display).
+//  at 50Hz (20ms tick). Pinned to core 0 (ESP32-C6 is single-core).
 // ============================================================
 
 #include "outputs_task.h"
@@ -12,7 +12,7 @@
 void startOutputsTask() {
     xTaskCreatePinnedToCore(
         outputsTaskFn, "outputs",
-        2048, nullptr, 2, nullptr, 1
+        2048, nullptr, 2, nullptr, 0
     );
     Serial.println("[Outputs] Task started");
 }
