@@ -2,7 +2,7 @@ name: EnvCube Firmware CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, master, develop ]
     paths:
       - 'firmware/**'
   pull_request:
