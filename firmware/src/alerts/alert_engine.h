@@ -6,38 +6,6 @@
 #include <Arduino.h>
 #include "../alert_types.h"
 
-// ── Live sensor data struct ──────────────────────────────────
-struct SensorReadings {
-    float    temperature_c   = 0.0f;
-    float    humidity_rh     = 0.0f;
-    float    pressure_hpa    = 0.0f;
-    bool     thermal_ok      = false;
-
-    uint16_t smoke_raw       = 0;
-    uint16_t co2_ppm         = 0;
-    bool     smoke_ok        = false;
-    bool     co2_ok          = false;
-
-    int16_t  voc_index       = 0;
-    int16_t  nox_index       = 0;
-    uint32_t lux             = 0;
-    bool     aq_ok           = false;
-
-    uint16_t pm1_0           = 0;
-    uint16_t pm2_5           = 0;
-    uint16_t pm10            = 0;
-    bool     pm_ok           = false;
-
-    bool     presence        = false;
-    uint16_t presence_cm     = 0;
-    bool     presence_ok     = false;
-
-    float    noise_db        = 0.0f;
-    bool     noise_ok        = false;
-
-    unsigned long last_update_ms = 0;
-};
-
 // ── ESP-NOW alert payload ────────────────────────────────────
 struct EspNowAlertPayload {
     uint8_t     version     = 1;
@@ -49,7 +17,7 @@ struct EspNowAlertPayload {
     float       value;
 };
 
-// ── Public API ───────────────────────────────────────────────
+// ── Alert engine ─────────────────────────────────────────────
 class AlertEngine {
 public:
     static void begin();
@@ -81,4 +49,5 @@ private:
     static void _triggerOutputs(AlertLevel level, AlertSource source);
 };
 
+// Global sensor readings instance — all modules share this
 extern SensorReadings g_readings;

@@ -5,7 +5,7 @@
 // ============================================================
 
 #include <Arduino.h>
-#include "../alerts/alert_engine.h"
+#include "../alert_types.h"
 
 class Bmp280Driver {
 public:

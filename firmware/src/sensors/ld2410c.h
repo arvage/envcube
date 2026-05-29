@@ -12,7 +12,7 @@
 // ============================================================
 
 #include <Arduino.h>
-#include "../alerts/alert_engine.h"
+#include "../alert_types.h"
 
 class Ld2410c {
 public:

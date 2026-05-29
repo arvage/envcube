@@ -6,7 +6,7 @@
 // ============================================================
 
 #include <Arduino.h>
-#include "../alerts/alert_engine.h"
+#include "../alert_types.h"
 
 class Scd41 {
 public:

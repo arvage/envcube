@@ -2,6 +2,7 @@
 // EnvCube — OLED display stub (full impl in Step 4)
 #include <Arduino.h>
 #include "../alert_types.h"
+
 class OledDisplay {
 public:
     static void begin();
