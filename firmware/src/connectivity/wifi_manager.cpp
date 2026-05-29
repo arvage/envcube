@@ -9,6 +9,7 @@
 #include <WiFiManager.h>    // tzapu/WiFiManager
 #include <ESPmDNS.h>
 #include <ArduinoOTA.h>
+#include "../display/oled.h"
 
 WifiState WifiManager::_state           = WifiState::DISCONNECTED;
 unsigned long WifiManager::_lastReconnectAttempt = 0;
@@ -126,7 +127,9 @@ void WifiManager::_connectWithCredentials() {
         Serial.printf("[OTA] Error[%u]\n", error);
     });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-        Serial.printf("[OTA] %u%%\r", progress * 100 / total);
+        uint8_t pct = (uint8_t)(progress * 100 / total);
+        Serial.printf("[OTA] %u%%\r", pct);
+        OledDisplay::showOtaProgress(pct);
     });
     ArduinoOTA.begin();
     Serial.println("[OTA] Ready");
