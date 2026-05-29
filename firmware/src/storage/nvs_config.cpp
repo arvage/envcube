@@ -34,10 +34,9 @@ static void _applyDefaults() {
     g_config.is_provisioned      = false;
 
     // Derive cube_id from last byte of MAC
-    // WiFi.macAddress() works on all Arduino ESP32 Core versions
-    uint8_t mac[6];
-    WiFi.macAddress(mac);
-    g_config.cube_id = mac[5];
+    // ESP.getEfuseMac() needs no extra headers — always available
+    uint64_t chipId = ESP.getEfuseMac();
+    g_config.cube_id = (uint8_t)(chipId & 0xFF);
 }
 
 // ── NvsConfig::load ──────────────────────────────────────────
