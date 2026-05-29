@@ -163,6 +163,10 @@ void taskConnectivity(void* param) {
             continue;
         }
         unsigned long now = millis();
+
+        // ESP-NOW mesh loop (peer discovery, dedup, timeouts)
+        EspNowMesh::loop();
+
         if (now - lastHeartbeat >= HEARTBEAT_INTERVAL_MS) {
             Serial.println("[Heartbeat] Ping");
             lastHeartbeat = now;

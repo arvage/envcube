@@ -17,6 +17,7 @@
 // ============================================================
 
 #include "oled.h"
+#include "../alerts/espnow_mesh.h"
 #include "../config.h"
 #include "../storage/nvs_config.h"
 #include <Wire.h>
@@ -218,7 +219,9 @@ void OledDisplay::_drawScreen2(bool wifiConnected, int rssi) {
     uint32_t upSec  = millis() / 1000;
     uint32_t upHr   = upSec / 3600;
     uint32_t upMin  = (upSec % 3600) / 60;
-    _display.printf("v%s  Up:%luh%02lum", ENVCUBE_VERSION, upHr, upMin);
+    _display.printf("v%s Up:%luh%02lum P:%u",
+                    ENVCUBE_VERSION, upHr, upMin,
+                    EspNowMesh::peerCount());
 
     // ── Row 4: Outdoor weather (if available) ─────────────────
     _display.setCursor(0, 44);

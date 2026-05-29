@@ -243,14 +243,6 @@ void AlertEngine::_triggerOutputs(AlertLevel level, AlertSource source) {
 void AlertEngine::_broadcastAlert(AlertLevel level, AlertSource source,
                                    const char* message, float value) {
 #ifdef ENVCUBE_ENABLE_ESPNOW
-    EspNowAlertPayload payload;
-    payload.level     = level;
-    payload.source    = source;
-    payload.cube_id   = g_config.cube_id;
-    payload.value     = value;
-    payload.timestamp_s = millis() / 1000;
-    strncpy(payload.room_name, g_config.room_name, sizeof(payload.room_name) - 1);
-
-    EspNowMesh::broadcast(payload);
+    EspNowMesh::broadcastAlert(level, source, g_config.room_name, value);
 #endif
 }
