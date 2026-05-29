@@ -1,7 +1,7 @@
 // ============================================================
 //  EnvCube — main.cpp
-//  Boot sequence, FreeRTOS task launch.
-//  Phase 1: NVS config → WiFi → Sensors → Alerts → Display
+//  Boot sequence + FreeRTOS task launch
+//  Phase 1 Step 3: full outputs wired
 // ============================================================
 
 #include <Arduino.h>
@@ -13,6 +13,7 @@
 #include "outputs/led.h"
 #include "outputs/buzzer.h"
 #include "outputs/dfplayer.h"
+#include "outputs/outputs_task.h"
 #include "display/oled.h"
 // Sensor drivers
 #include "sensors/sht40.h"
@@ -31,7 +32,6 @@ void taskDisplay(void* param);
 void taskConnectivity(void* param);
 void handleButton();
 
-// ── Button state ─────────────────────────────────────────────
 static unsigned long _btnPressStart = 0;
 static bool          _btnWasPressed = false;
 
@@ -45,34 +45,29 @@ void setup() {
     Serial.println("|  Phase 1 prototype      |");
     Serial.println("+=========================+");
 
-    // ── 1. GPIO setup ─────────────────────────────────────────
     pinMode(PIN_BUTTON, INPUT_PULLUP);
 
-    // ── 2. LED — show boot colour immediately ─────────────────
+    // ── Outputs first — give user immediate visual feedback ───
     Led::begin();
-    Led::setColor(LED_COLOR_WHITE);
+    Led::setColor(LED_COLOR_WHITE);   // White = booting
+    Buzzer::begin();
+    DFPlayer::begin();                // ~1.5 s startup
+    startOutputsTask();               // LED anim + buzzer + DFPlayer monitor
 
-    // ── 3. Load NVS config ────────────────────────────────────
-    Serial.println("[Boot] Loading NVS config...");
+    // ── Config + alert engine ─────────────────────────────────
     NvsConfig::load();
     NvsConfig::dump();
-
-    // ── 4. Alert engine ───────────────────────────────────────
     AlertEngine::begin();
 
-    // ── 5. Buzzer + DFPlayer ──────────────────────────────────
-    Buzzer::begin();
-    DFPlayer::begin();
-
-    // ── 6. OLED display ───────────────────────────────────────
+    // ── Display ───────────────────────────────────────────────
     OledDisplay::begin();
     OledDisplay::showBoot(ENVCUBE_VERSION);
 
-    // ── 7. WiFi ───────────────────────────────────────────────
-    Serial.println("[Boot] Starting WiFi manager...");
+    // ── WiFi ──────────────────────────────────────────────────
     if (!g_config.is_provisioned) {
         Led::pulse(LED_COLOR_BLUE);
         OledDisplay::showProvisioning(WIFI_AP_SSID);
+        if (g_config.voice_enabled) DFPlayer::play(AUDIO_PROVISIONING);
     } else {
         Led::pulse(LED_COLOR_WHITE);
     }
@@ -80,15 +75,15 @@ void setup() {
 
     if (WifiManager::isConnected()) {
         Led::setColor(LED_COLOR_GREEN);
-        Serial.printf("[Boot] WiFi connected — %s\n",
-                      WifiManager::ipAddress().c_str());
         if (g_config.voice_enabled) DFPlayer::play(AUDIO_WIFI_CONNECTED);
+        Buzzer::confirm();
+    } else {
+        Led::setColor(LED_COLOR_AMBER);
     }
 
-    // ── 8. ESP-NOW mesh ───────────────────────────────────────
     EspNowMesh::begin();
 
-    // ── 9. Launch FreeRTOS tasks ──────────────────────────────
+    // ── Sensor + alert tasks ──────────────────────────────────
     xTaskCreatePinnedToCore(taskSensors,      "sensors",
                             8192, nullptr, 3, nullptr, 0);
     xTaskCreatePinnedToCore(taskDisplay,      "display",
@@ -96,7 +91,7 @@ void setup() {
     xTaskCreatePinnedToCore(taskConnectivity, "connectivity",
                             8192, nullptr, 1, nullptr, 1);
 
-    Serial.println("[Boot] All tasks launched — EnvCube running");
+    Serial.println("[Boot] EnvCube running");
     Led::setAlert(AlertLevel::ALL_CLEAR);
 }
 
@@ -119,14 +114,12 @@ void taskSensors(void* param) {
     Ld2410c::begin();
     Ics43434::begin();
 
-    Serial.println("[Sensors] All initialised");
-
+    Serial.println("[Sensors] All initialised — polling started");
     unsigned long lastSlowPoll = 0;
 
     for (;;) {
         unsigned long now = millis();
 
-        // Fast sensors
         Sht40::read(g_readings);
         Bmp280Driver::read(g_readings);
         Mq2::read(g_readings);
@@ -135,7 +128,6 @@ void taskSensors(void* param) {
         Ics43434::read(g_readings);
         Veml7700Driver::read(g_readings);
 
-        // Slow sensors
         if (now - lastSlowPoll >= POLL_SLOW_MS) {
             Scd41::read(g_readings);
             Sgp41::read(g_readings,
@@ -165,20 +157,16 @@ void taskDisplay(void* param) {
 // ── taskConnectivity ──────────────────────────────────────────
 void taskConnectivity(void* param) {
     unsigned long lastHeartbeat = 0;
-
     for (;;) {
         if (!WifiManager::isConnected()) {
             vTaskDelay(pdMS_TO_TICKS(5000));
             continue;
         }
-
         unsigned long now = millis();
-
         if (now - lastHeartbeat >= HEARTBEAT_INTERVAL_MS) {
             Serial.println("[Heartbeat] Ping");
             lastHeartbeat = now;
         }
-
         vTaskDelay(pdMS_TO_TICKS(500));
     }
 }
@@ -186,14 +174,12 @@ void taskConnectivity(void* param) {
 // ── handleButton ──────────────────────────────────────────────
 void handleButton() {
     bool pressed = (digitalRead(PIN_BUTTON) == LOW);
-
     if (pressed && !_btnWasPressed) {
         _btnPressStart = millis();
         _btnWasPressed = true;
     } else if (!pressed && _btnWasPressed) {
         unsigned long held = millis() - _btnPressStart;
         _btnWasPressed = false;
-
         if      (held >= BTN_HOLD_RESET_MS)     { NvsConfig::factoryReset(); }
         else if (held >= BTN_HOLD_PROVISION_MS) { WifiManager::startProvisioning(); }
         else                                    { OledDisplay::nextScreen(); }
