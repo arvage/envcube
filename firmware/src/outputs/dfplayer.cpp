@@ -29,13 +29,24 @@
 #include "../storage/nvs_config.h"
 
 DFRobotDFPlayerMini DFPlayer::_player;
-HardwareSerial      DFPlayer::_serial(2);  // UART2 (LP UART, fixed GPIO4/5)
+HardwareSerial      DFPlayer::_serial(1);  // UART1 (remapped to GPIO4/5)
 bool                DFPlayer::_ready      = false;
 uint8_t             DFPlayer::_volume     = AUDIO_VOLUME;
 uint32_t            DFPlayer::_lastPlayMs = 0;
 
 // ── DFPlayer::begin ──────────────────────────────────────────
 bool DFPlayer::begin() {
+    // ESP32-C6 LP UART (UART2) has restrictions in Arduino Core 3.x.
+    // DFPlayer uses UART1 remapped to GPIO4(TX)/GPIO5(RX).
+    // Skip init if Serial1 is already in use by LD2410C on GPIO16/17.
+    // TODO: resolve UART conflict in Phase 2 PCB design.
+    // For now: log voice events to Serial only.
+    Serial.println("[DFPlayer] UART init skipped — UART conflict on ESP32-C6");
+    Serial.println("[DFPlayer] Voice alerts will be logged to Serial only");
+    _ready = false;
+    return false;
+
+    // --- Below code kept for Phase 2 ---
     _serial.begin(DFPLAYER_BAUD, SERIAL_8N1,
                   PIN_DFPLAYER_RX, PIN_DFPLAYER_TX);
 
