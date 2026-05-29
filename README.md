@@ -52,18 +52,19 @@ See [BOM](docs/hardware/BOM.md) for full component list with part numbers and su
 
 Built with **Arduino framework on ESP32-C6** via PlatformIO (espressif32 @ 6.10.0).
 
-### Phase 1 — Prototype (current)
-- [x] Project scaffold + PlatformIO config
-- [ ] NVS config (room name, thresholds, credentials)
-- [ ] WiFi manager + captive portal provisioning
-- [ ] Sensor drivers (SHT40, SCD41, SGP41, MQ-2, LD2410C, PMSA003I, ICS-43434)
-- [ ] Alert state machine (Green → Amber → Red)
-- [ ] LED + buzzer + DFPlayer voice alerts
-- [ ] OLED display (offline screen)
-- [ ] ESP-NOW encrypted mesh
-- [ ] MQTT + Home Assistant auto-discovery
-- [ ] OTA firmware update
-- [ ] Weather fetch (Open-Meteo)
+### Phase 1 — Prototype ✅ COMPLETE
+- [x] Project scaffold + PlatformIO config (pioarduino, ESP32-C6)
+- [x] NVS config (room name, thresholds, credentials)
+- [x] WiFi manager + captive portal provisioning
+- [x] 9 sensor drivers (SHT40, BMP280, SCD41, SGP41, VEML7700, MQ-2, LD2410C, PMSA003I, ICS-43434)
+- [x] Alert state machine (Green → Amber → Red → Critical)
+- [x] LED animations + buzzer patterns + DFPlayer voice alerts
+- [x] OLED display (3 screens, auto-dim, OTA progress)
+- [x] ESP-NOW encrypted mesh (AES-128, auto peer discovery)
+- [x] MQTT + Home Assistant auto-discovery (13 entities, LWT watchdog)
+- [x] OTA firmware update (ArduinoOTA, LED/OLED feedback)
+- [x] Weather fetch (Open-Meteo HTTPS, outdoor conditions)
+- [x] Integration test checklist + HA dashboard guide
 
 See [PHASE1.md](docs/firmware/PHASE1.md) for detailed step-by-step plan.
 

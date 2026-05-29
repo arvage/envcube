@@ -5,11 +5,14 @@
 // ============================================================
 
 #include <Arduino.h>
+#include <WiFi.h>
 #include "config.h"
 #include "storage/nvs_config.h"
 #include "connectivity/wifi_manager.h"
 #include "alerts/alert_engine.h"
 #include "alerts/espnow_mesh.h"
+#include "connectivity/mqtt_client.h"
+#include "connectivity/weather.h"
 #include "outputs/led.h"
 #include "outputs/buzzer.h"
 #include "outputs/dfplayer.h"
@@ -82,6 +85,14 @@ void setup() {
     }
 
     EspNowMesh::begin();
+
+#ifdef ENVCUBE_ENABLE_MQTT
+    MqttClient::begin();
+#endif
+
+#ifdef ENVCUBE_ENABLE_WEATHER
+    if (WifiManager::isConnected()) Weather::fetchNow();
+#endif
 
     // ── Sensor + alert tasks ──────────────────────────────────
     xTaskCreatePinnedToCore(taskSensors,      "sensors",
@@ -163,7 +174,37 @@ void taskConnectivity(void* param) {
             continue;
         }
         unsigned long now = millis();
+
+        // ESP-NOW mesh (peer discovery, dedup, timeouts)
+        EspNowMesh::loop();
+
+#ifdef ENVCUBE_ENABLE_MQTT
+        // MQTT loop + reconnect
+        MqttClient::loop();
+
+        // Publish sensor readings every PUBLISH_INTERVAL
+        static unsigned long lastPublish = 0;
+        if (MqttClient::isConnected() && now - lastPublish >= 10000) {
+            MqttClient::publishReadings(g_readings);
+            MqttClient::publishAlert(AlertEngine::currentLevel(),
+                                     AlertEngine::currentSource(),
+                                     AlertEngine::currentMessage());
+            MqttClient::publishStatus(true, WiFi.RSSI(),
+                                      WiFi.localIP().toString().c_str(),
+                                      now / 1000);
+            lastPublish = now;
+        }
+#endif
+
+#ifdef ENVCUBE_ENABLE_WEATHER
+        Weather::loop();
+#endif
+
+        // Heartbeat (cloud watchdog)
         if (now - lastHeartbeat >= HEARTBEAT_INTERVAL_MS) {
+#ifdef ENVCUBE_ENABLE_MQTT
+            MqttClient::publishHeartbeat();
+#endif
             Serial.println("[Heartbeat] Ping");
             lastHeartbeat = now;
         }
