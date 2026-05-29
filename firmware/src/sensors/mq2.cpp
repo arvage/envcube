@@ -26,6 +26,7 @@
 // ============================================================
 
 #include "mq2.h"
+#include "../storage/nvs_config.h"
 #include "../config.h"
 #include <Arduino.h>
 
