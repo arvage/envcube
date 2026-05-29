@@ -50,6 +50,9 @@ public:
     static void publishStatus(bool online, int rssi, const char* ip,
                               uint32_t uptime_s);
 
+    // Publish outdoor weather (called from weather.cpp after fetch)
+    static void publishWeather(const WeatherData& w);
+
     // True if currently connected to broker
     static bool isConnected();
 
@@ -78,6 +81,3 @@ private:
     static const uint32_t RECONNECT_INTERVAL_MS = 5000;
     static const uint32_t PUBLISH_INTERVAL_MS   = 10000;
 };
-
-    // Publish outdoor weather (called from weather.cpp after fetch)
-    static void publishWeather(const WeatherData& w);
