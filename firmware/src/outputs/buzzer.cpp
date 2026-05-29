@@ -10,6 +10,7 @@
 
 #include "buzzer.h"
 #include "../config.h"
+#include "../storage/nvs_config.h"
 
 bool     Buzzer::_muted          = false;
 bool     Buzzer::_alarming       = false;

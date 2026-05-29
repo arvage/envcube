@@ -25,6 +25,8 @@
 // ============================================================
 
 #include "dfplayer.h"
+#include "../config.h"
+#include "../storage/nvs_config.h"
 
 DFRobotDFPlayerMini DFPlayer::_player;
 HardwareSerial      DFPlayer::_serial(2);  // UART2
