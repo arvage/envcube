@@ -29,7 +29,7 @@
 #include "../storage/nvs_config.h"
 
 DFRobotDFPlayerMini DFPlayer::_player;
-HardwareSerial      DFPlayer::_serial(2);  // UART2
+HardwareSerial      DFPlayer::_serial(2);  // UART2 (LP UART, fixed GPIO4/5)
 bool                DFPlayer::_ready      = false;
 uint8_t             DFPlayer::_volume     = AUDIO_VOLUME;
 uint32_t            DFPlayer::_lastPlayMs = 0;

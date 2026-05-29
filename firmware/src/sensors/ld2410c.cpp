@@ -30,7 +30,7 @@
 #include "../config.h"
 
 // Use HardwareSerial for ESP32-C6 UART
-static HardwareSerial _ld2410Serial(1);  // UART1
+static HardwareSerial _ld2410Serial(1);  // UART1 (remappable)
 
 bool     Ld2410c::_ready      = false;
 bool     Ld2410c::_presence   = false;
