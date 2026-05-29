@@ -9,6 +9,9 @@
 #include "../outputs/buzzer.h"
 #include "../outputs/dfplayer.h"
 #include "espnow_mesh.h"
+#ifdef ENVCUBE_ENABLE_MQTT
+#include "../connectivity/mqtt_client.h"
+#endif
 
 SensorReadings g_readings = {};
 
@@ -208,6 +211,10 @@ void AlertEngine::_applyLevel(AlertLevel level, AlertSource source,
     if (levelChanged) {
         Serial.printf("[Alert] Level changed: %d (%s) val=%.1f\n",
                       (int)level, message, value);
+#ifdef ENVCUBE_ENABLE_MQTT
+        // Publish immediately on state change (don't wait for poll interval)
+        MqttClient::publishAlert(level, source, message);
+#endif
     }
 
     _triggerOutputs(level, source);
