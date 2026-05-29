@@ -12,6 +12,7 @@
 #include "alerts/alert_engine.h"
 #include "alerts/espnow_mesh.h"
 #include "connectivity/mqtt_client.h"
+#include "connectivity/weather.h"
 #include "outputs/led.h"
 #include "outputs/buzzer.h"
 #include "outputs/dfplayer.h"
@@ -87,6 +88,10 @@ void setup() {
 
 #ifdef ENVCUBE_ENABLE_MQTT
     MqttClient::begin();
+#endif
+
+#ifdef ENVCUBE_ENABLE_WEATHER
+    if (WifiManager::isConnected()) Weather::fetchNow();
 #endif
 
     // ── Sensor + alert tasks ──────────────────────────────────
@@ -189,6 +194,10 @@ void taskConnectivity(void* param) {
                                       now / 1000);
             lastPublish = now;
         }
+#endif
+
+#ifdef ENVCUBE_ENABLE_WEATHER
+        Weather::loop();
 #endif
 
         // Heartbeat (cloud watchdog)

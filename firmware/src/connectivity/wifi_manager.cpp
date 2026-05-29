@@ -10,6 +10,8 @@
 #include <ESPmDNS.h>
 #include <ArduinoOTA.h>
 #include "../display/oled.h"
+#include "../outputs/led.h"
+#include "../outputs/buzzer.h"
 
 WifiState WifiManager::_state           = WifiState::DISCONNECTED;
 unsigned long WifiManager::_lastReconnectAttempt = 0;
@@ -119,9 +121,12 @@ void WifiManager::_connectWithCredentials() {
 
     ArduinoOTA.onStart([]() {
         Serial.println("[OTA] Starting firmware update...");
+        Buzzer::stop();
+        Led::flash(LED_COLOR_WHITE, 0);  // infinite white flash
     });
     ArduinoOTA.onEnd([]() {
         Serial.println("\n[OTA] Done — rebooting");
+        Led::setColor(LED_COLOR_GREEN);
     });
     ArduinoOTA.onError([](ota_error_t error) {
         Serial.printf("[OTA] Error[%u]\n", error);

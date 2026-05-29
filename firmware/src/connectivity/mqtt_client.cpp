@@ -445,3 +445,16 @@ void MqttClient::_roomSlug(char* buf, size_t bufLen) {
         if (buf[i] == ' ') buf[i] = '-';
     }
 }
+
+// ── MqttClient::publishWeather ───────────────────────────────
+// Call from weather.cpp after successful fetch
+void MqttClient::publishWeather(const WeatherData& w) {
+    if (!_connected || !w.valid) return;
+    char topic[80], payload[200];
+    _topic(topic, sizeof(topic), "weather");
+    snprintf(payload, sizeof(payload),
+             "{\"temp_f\":%.1f,\"humidity\":%.0f,"
+             "\"weather_code\":%u,\"uv_index\":%.1f}",
+             w.temp_f, w.humidity, w.weather_code, w.uv_index);
+    _mqtt.publish(topic, payload, true);
+}

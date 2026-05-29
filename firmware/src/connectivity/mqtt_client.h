@@ -26,6 +26,7 @@
 
 #include <Arduino.h>
 #include "../alert_types.h"
+#include "../display/oled.h"   // WeatherData
 
 class MqttClient {
 public:
@@ -77,3 +78,6 @@ private:
     static const uint32_t RECONNECT_INTERVAL_MS = 5000;
     static const uint32_t PUBLISH_INTERVAL_MS   = 10000;
 };
+
+    // Publish outdoor weather (called from weather.cpp after fetch)
+    static void publishWeather(const WeatherData& w);
