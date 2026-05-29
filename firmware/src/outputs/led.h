@@ -12,7 +12,7 @@
 
 #include <Arduino.h>
 #include <FastLED.h>
-#include "../alerts/alert_engine.h"
+#include "../alert_types.h"
 #include "../config.h"
 
 enum class LedMode {

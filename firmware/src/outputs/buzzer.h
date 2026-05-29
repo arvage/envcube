@@ -14,7 +14,7 @@
 // ============================================================
 
 #include <Arduino.h>
-#include "../alerts/alert_engine.h"
+#include "../alert_types.h"
 
 // Buzzer tone frequencies (Hz)
 #define BUZZ_FREQ_WARN     1000

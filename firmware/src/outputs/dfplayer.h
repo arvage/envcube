@@ -23,7 +23,7 @@
 
 #include <Arduino.h>
 #include <DFRobotDFPlayerMini.h>
-#include "../alerts/alert_engine.h"
+#include "../alert_types.h"
 #include "../config.h"
 
 class DFPlayer {
