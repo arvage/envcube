@@ -7,7 +7,7 @@
 
 ## Step-by-step implementation order
 
-### ✅ Step 1 — Scaffold (complete)
+### ✅ Step 1 — Scaffold
 - `platformio.ini` with ESP32-C6, espressif32@6.10.0, all libraries
 - `partitions.csv` with dual OTA banks + NVS + SPIFFS
 - `config.h` with all pins, addresses, and threshold defaults
@@ -21,7 +21,7 @@
 
 ---
 
-### ⬜ Step 2 — Sensor drivers
+### ✅ Step 2 — Sensor drivers
 Implement each sensor driver in `main/sensors/`:
 
 | File | Sensor | Interface | Notes |
@@ -43,7 +43,7 @@ Each driver has a `begin()` and `read(SensorReadings&)` method.
 
 ---
 
-### ⬜ Step 3 — Outputs
+### ✅ Step 3 — Outputs
 Implement output drivers:
 
 | File | Output | Notes |
@@ -71,7 +71,7 @@ Audio file naming convention for microSD:
 
 ---
 
-### ⬜ Step 4 — OLED display
+### ✅ Step 4 — OLED display
 Implement `display/oled.cpp`:
 
 **Screen 0 — Indoor readings (default)**
@@ -108,7 +108,7 @@ Implement `display/oled.cpp`:
 
 ---
 
-### ⬜ Step 5 — ESP-NOW encrypted mesh
+### ✅ Step 5 — ESP-NOW encrypted mesh
 Implement `alerts/espnow_mesh.cpp`:
 
 - Init ESP-NOW with PMK (AES-128)
@@ -126,7 +126,7 @@ Security notes:
 
 ---
 
-### ⬜ Step 6 — MQTT + Home Assistant discovery
+### ✅ Step 6 — MQTT + Home Assistant discovery
 Implement `connectivity/mqtt_client.cpp`:
 
 **Topic structure:**
@@ -159,7 +159,7 @@ Published once on connect — HA immediately shows all entities.
 
 ---
 
-### ⬜ Step 7 — OTA + weather fetch
+### ✅ Step 7 — OTA + weather fetch
 `connectivity/ota_manager.cpp` — ArduinoOTA already wired in WiFi manager.
 `connectivity/weather.cpp` — Open-Meteo REST fetch, no API key.
 
@@ -176,7 +176,7 @@ https://api.open-meteo.com/v1/forecast
 
 ---
 
-### ⬜ Step 8 — Integration test + HA dashboard
+### ✅ Step 8 — Integration test + HA dashboard
 - Flash both prototype cubes
 - Provision via captive portal
 - Verify all sensors reading in HA
