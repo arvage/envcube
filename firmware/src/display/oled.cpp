@@ -287,15 +287,17 @@ void OledDisplay::showOtaProgress(uint8_t percent) {
     _display.clearDisplay();
 
     _display.setTextSize(1);
-    _display.setCursor(16, 8);
+    _display.setCursor(16, 4);
     _display.print("Updating firmware");
+    _display.setCursor(40, 16);
+    _display.print("v" ENVCUBE_VERSION);
 
     // Progress bar
-    _display.drawRect(4, 28, 120, 12, SSD1306_WHITE);
+    _display.drawRect(4, 30, 120, 12, SSD1306_WHITE);
     uint8_t filled = (uint8_t)(116 * percent / 100);
-    _display.fillRect(6, 30, filled, 8, SSD1306_WHITE);
+    _display.fillRect(6, 32, filled, 8, SSD1306_WHITE);
 
-    _display.setCursor(54, 44);
+    _display.setCursor(54, 46);
     _display.printf("%u%%", percent);
 
     _display.display();

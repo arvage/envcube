@@ -47,7 +47,11 @@
       "Bash(rm -rf envcube-v0.6.0 envcube-v0.6.0-firmware-bundle.zip)",
       "Bash(mkdir envcube-v0.6.0)",
       "Bash(cp /Users/arvage/Downloads/envcube/firmware/.pio/build/esp32c6/firmware.factory.bin /Users/arvage/Downloads/envcube/firmware/.pio/build/esp32c6/firmware.bin /Users/arvage/Downloads/envcube/firmware/.pio/build/esp32c6/bootloader.bin /Users/arvage/Downloads/envcube/firmware/.pio/build/esp32c6/partitions.bin envcube-v0.6.0/)",
-      "Bash(zip -j envcube-v0.6.0-firmware-bundle.zip envcube-v0.6.0/*)"
+      "Bash(zip -j envcube-v0.6.0-firmware-bundle.zip envcube-v0.6.0/*)",
+      "Bash(rm -rf envcube-v0.7.0 envcube-v0.7.0-firmware-bundle.zip)",
+      "Bash(mkdir envcube-v0.7.0)",
+      "Bash(cp /Users/arvage/Downloads/envcube/firmware/.pio/build/esp32c6/firmware.factory.bin /Users/arvage/Downloads/envcube/firmware/.pio/build/esp32c6/firmware.bin /Users/arvage/Downloads/envcube/firmware/.pio/build/esp32c6/bootloader.bin /Users/arvage/Downloads/envcube/firmware/.pio/build/esp32c6/partitions.bin envcube-v0.7.0/)",
+      "Bash(zip -j envcube-v0.7.0-firmware-bundle.zip envcube-v0.7.0/*)"
     ]
   }
 }
