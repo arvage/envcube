@@ -67,6 +67,7 @@ private:
 
     static uint8_t  _screen;
     static bool     _dimmed;
+    static bool     _otaActive;
     static uint32_t _lastActivityMs;
     static bool     _ready;
 

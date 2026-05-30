@@ -31,6 +31,7 @@ static Adafruit_SSD1306 _display(OLED_WIDTH, OLED_HEIGHT, &Wire, -1);
 
 uint8_t  OledDisplay::_screen        = 0;
 bool     OledDisplay::_dimmed        = false;
+bool     OledDisplay::_otaActive     = false;
 uint32_t OledDisplay::_lastActivityMs = 0;
 bool     OledDisplay::_ready         = false;
 
@@ -57,7 +58,7 @@ void OledDisplay::update(const SensorReadings& r,
                           AlertLevel level,
                           bool wifiConnected,
                           int rssi) {
-    if (!_ready) return;
+    if (!_ready || _otaActive) return;
 
     // Auto-dim after inactivity
     uint32_t now = millis();
@@ -282,6 +283,7 @@ void OledDisplay::showProvisioning(const char* ssid) {
 // ── showOtaProgress ──────────────────────────────────────────
 void OledDisplay::showOtaProgress(uint8_t percent) {
     if (!_ready) return;
+    _otaActive = true;
     _display.clearDisplay();
 
     _display.setTextSize(1);
