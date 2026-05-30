@@ -104,12 +104,11 @@ void MqttClient::publishReadings(const SensorReadings& r) {
     }
 
     if (r.smoke_ok) {
-        bool detected = r.smoke_raw >= g_config.thresh_smoke_warn;
         _topic(topic, sizeof(topic), "smoke");
-        snprintf(payload, sizeof(payload),
-                 "{\"value\":%s,\"raw\":%u}",
-                 detected ? "true" : "false", r.smoke_raw);
-        _mqtt.publish(topic, payload, true); published++;
+        _mqtt.publish(topic,
+            r.smoke_raw >= g_config.thresh_smoke_warn ? "on" : "off",
+            true);
+        published++;
     }
 
     if (r.aq_ok) {
@@ -149,13 +148,10 @@ void MqttClient::publishReadings(const SensorReadings& r) {
         _mqtt.publish(topic, payload, true); published++;
     }
 
-    // Presence
     if (r.presence_ok) {
         _topic(topic, sizeof(topic), "presence");
-        snprintf(payload, sizeof(payload),
-                 "{\"value\":%s,\"distance_cm\":%u}",
-                 r.presence ? "true" : "false", r.presence_cm);
-        _mqtt.publish(topic, payload, true); published++;
+        _mqtt.publish(topic, r.presence ? "on" : "off", true);
+        published++;
     }
 
     Logger::write('I', "MQTT", "Published %u sensor(s)", published);
@@ -373,13 +369,11 @@ void MqttClient::_publishDiscovery() {
     // ── Binary sensors ───────────────────────────────────────
     _topic(stateTopic, sizeof(stateTopic), "smoke");
     _publishSensor("smoke", "Smoke", "",
-                   "smoke", stateTopic,
-                   "{{ 'on' if value_json.value else 'off' }}", true);
+                   "smoke", stateTopic, nullptr, true);
 
     _topic(stateTopic, sizeof(stateTopic), "presence");
     _publishSensor("presence", "Presence", "",
-                   "occupancy", stateTopic,
-                   "{{ 'on' if value_json.value else 'off' }}", true);
+                   "occupancy", stateTopic, nullptr, true);
 
     // ── Alert level sensor ───────────────────────────────────
     _topic(stateTopic, sizeof(stateTopic), "alert");
@@ -421,14 +415,19 @@ void MqttClient::_publishSensor(const char* sensor_id,
     JsonDocument doc;
     doc["name"]           = friendlyName;
     doc["unique_id"]      = uid;
-    doc["state_topic"]    = state_topic;
-    doc["value_template"] = value_template;
+    doc["state_topic"] = state_topic;
+    if (value_template != nullptr)
+        doc["value_template"] = value_template;
     if (strlen(unit) > 0)
         doc["unit_of_measurement"] = unit;
     if (device_class != nullptr)
         doc["device_class"] = device_class;
-    doc["availability_topic"]  = "";  // set below
-    doc["payload_available"]   = "online";
+    if (binary) {
+        doc["payload_on"]  = "on";
+        doc["payload_off"] = "off";
+    }
+    doc["availability_topic"]    = "";  // set below
+    doc["payload_available"]     = "online";
     doc["payload_not_available"] = "offline";
 
     // Device block — shared across all entities so HA groups them under one device
