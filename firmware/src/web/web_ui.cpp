@@ -21,6 +21,7 @@
 #include "../alerts/alert_engine.h"
 #include "../display/oled.h"
 #include "../connectivity/weather.h"
+#include "../outputs/buzzer.h"
 #include "logger.h"
 
 static WebServer _server(80);
@@ -139,6 +140,19 @@ td.sta{width:18%;text-align:right}
     <div class="field"><label>Firmware</label><input type="text" id="fw_ver" disabled></div>
   </div>
   <div class="field"><label>IP Address</label><input type="text" id="ip_addr" disabled></div>
+  <div class="divider">Buzzer test</div>
+  <div class="row" style="gap:8px;flex-wrap:wrap">
+    <select id="buzz-pattern" style="background:#1a1d27;border:1px solid #2a2d3a;border-radius:6px;color:#e0e0e0;padding:8px 10px;font-size:.88rem;flex:1;min-width:200px">
+      <option value="confirm">Confirm (880 Hz, short)</option>
+      <option value="beep1">1 Beep (2 kHz)</option>
+      <option value="beep2">2 Beeps (2 kHz)</option>
+      <option value="beep3">3 Beeps (2 kHz)</option>
+      <option value="warning">Warning (1 kHz)</option>
+      <option value="alarm">Alarm (continuous)</option>
+    </select>
+    <button class="btn btn-primary" onclick="buzzerTest()">&#9654; Test</button>
+    <button class="btn btn-ghost" onclick="buzzerStop()">&#9646;&#9646; Stop</button>
+  </div>
   <div class="actions">
     <button class="btn btn-primary" onclick="save()">Save</button>
     <button class="btn btn-warn" onclick="doReboot()">Reboot</button>
@@ -365,6 +379,13 @@ function renderLog(){
   if(document.getElementById('log-scroll').checked) pre.scrollTop=pre.scrollHeight;
 }
 function clearLog(){_logLines=[];document.getElementById('log-pre').innerHTML='';}
+function buzzerTest(){
+  var p=document.getElementById('buzz-pattern').value;
+  fetch('/api/buzzer/test',{method:'POST',headers:{'Content-Type':'text/plain'},body:p});
+}
+function buzzerStop(){
+  fetch('/api/buzzer/test',{method:'POST',headers:{'Content-Type':'text/plain'},body:'stop'});
+}
 loadConfig();loadReadings();
 setInterval(loadReadings,3000);
 setInterval(function(){if(_tab==='log')loadLog();},2000);
@@ -508,6 +529,19 @@ static void handleWeatherFetch() {
     _server.send(200, "application/json", "{\"ok\":true}");
 }
 
+static void handleBuzzerTest() {
+    String pattern = _server.arg("plain");
+    pattern.trim();
+    if      (pattern == "confirm") Buzzer::confirm();
+    else if (pattern == "beep1")   Buzzer::beep(1, BUZZ_FREQ_ALERT);
+    else if (pattern == "beep2")   Buzzer::beep(2, BUZZ_FREQ_ALERT);
+    else if (pattern == "beep3")   Buzzer::beep(3, BUZZ_FREQ_ALERT);
+    else if (pattern == "warning") Buzzer::beep(1, BUZZ_FREQ_WARN);
+    else if (pattern == "alarm")   Buzzer::alarm();
+    else if (pattern == "stop")    Buzzer::stop();
+    _server.send(200, "application/json", "{\"ok\":true}");
+}
+
 static void handleReboot() {
     _server.send(200, "application/json", "{\"ok\":true}");
     delay(200);
@@ -549,6 +583,7 @@ void WebUI::begin() {
     _server.on("/api/readings",      HTTP_GET,  handleGetReadings);
     _server.on("/api/weather",       HTTP_GET,  handleGetWeather);
     _server.on("/api/weather/fetch", HTTP_POST, handleWeatherFetch);
+    _server.on("/api/buzzer/test",   HTTP_POST, handleBuzzerTest);
     _server.on("/api/reboot",        HTTP_POST, handleReboot);
     _server.on("/api/reset",         HTTP_POST, handleReset);
     _server.on("/api/log",           HTTP_GET,  handleGetLog);
