@@ -3,7 +3,28 @@
     "allow": [
       "Bash(gh repo *)",
       "Bash(git push *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(gh run *)",
+      "Bash(pio run *)",
+      "Bash(pio device *)",
+      "Bash(screen -S esp32 -dm /dev/cu.usbserial-210 115200)",
+      "Bash(screen -S esp32 -X hardcopy /tmp/esp32_output.txt)",
+      "Read(//tmp/**)",
+      "Bash(kill 79316)",
+      "Bash(stty -f /dev/cu.usbserial-210 115200 raw)",
+      "Bash(timeout 20 cat /dev/cu.usbserial-210)",
+      "Bash(gtimeout 20 cat /dev/cu.usbserial-210)",
+      "Bash(python3 *)",
+      "Bash(brew list *)",
+      "Bash(brew install *)",
+      "Bash(gh auth *)",
+      "Read(//private/tmp/**)",
+      "Bash(mkdir -p envcube-v0.2.0)",
+      "Bash(cp /Users/arvage/Downloads/envcube/firmware/.pio/build/esp32c6/firmware.bin /Users/arvage/Downloads/envcube/firmware/.pio/build/esp32c6/firmware.factory.bin /Users/arvage/Downloads/envcube/firmware/.pio/build/esp32c6/bootloader.bin /Users/arvage/Downloads/envcube/firmware/.pio/build/esp32c6/partitions.bin envcube-v0.2.0/)",
+      "Bash(zip -j envcube-v0.2.0-firmware-bundle.zip envcube-v0.2.0/*)",
+      "Bash(git tag *)",
+      "Bash(gh release *)"
     ]
   }
 }
