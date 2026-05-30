@@ -437,6 +437,7 @@ static void handleGetWeather() {
     doc["uv_index"]     = serialized(String(g_weather.uv_index, 1));
     doc["fetched_ms"]   = g_weather.fetched_ms;
     doc["lat_set"]      = (g_config.latitude != 0.0f || g_config.longitude != 0.0f);
+    doc["last_error"]   = Weather::_lastError;
     String out;
     serializeJson(doc, out);
     _server.send(200, "application/json", out);
@@ -447,8 +448,8 @@ static void handleWeatherFetch() {
         _server.send(400, "application/json", "{\"ok\":false,\"msg\":\"No location set\"}");
         return;
     }
+    Weather::requestFetch();  // picked up by taskConnectivity — avoids blocking loop()
     _server.send(200, "application/json", "{\"ok\":true}");
-    Weather::fetchNow();
 }
 
 static void handleReboot() {

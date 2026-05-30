@@ -22,18 +22,16 @@
 
 class Weather {
 public:
-    // Fetch current conditions for stored lat/lon.
-    // Non-blocking check — only fetches if interval elapsed.
     static void loop();
-
-    // Force an immediate fetch (e.g. on first WiFi connect).
     static void fetchNow();
-
-    // True if last fetch succeeded.
+    static void requestFetch();   // safe to call from any context — picked up by loop()
     static bool isValid();
 
 private:
     static bool     _fetch();
     static uint32_t _lastFetchMs;
     static bool     _valid;
+    static volatile bool _fetchRequested;
+public:
+    static char     _lastError[64];
 };

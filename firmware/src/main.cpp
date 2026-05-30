@@ -97,16 +97,16 @@ void setup() {
 #endif
 
 #ifdef ENVCUBE_ENABLE_WEATHER
-    if (WifiManager::isConnected()) Weather::fetchNow();
+    if (WifiManager::isConnected()) Weather::requestFetch();
 #endif
 
     // ── Sensor + alert tasks ──────────────────────────────────
     xTaskCreatePinnedToCore(taskSensors,      "sensors",
-                            8192, nullptr, 3, nullptr, 0);
+                            12288, nullptr, 3, nullptr, 0);
     xTaskCreatePinnedToCore(taskDisplay,      "display",
                             4096, nullptr, 2, nullptr, 0);
     xTaskCreatePinnedToCore(taskConnectivity, "connectivity",
-                            8192, nullptr, 1, nullptr, 0);
+                            16384, nullptr, 1, nullptr, 0);
 
     Serial.println("[Boot] EnvCube running");
     Led::setAlert(AlertLevel::ALL_CLEAR);
@@ -122,15 +122,16 @@ void loop() {
 
 // ── taskSensors ───────────────────────────────────────────────
 void taskSensors(void* param) {
-    Sht40::begin();
-    Bmp280Driver::begin();
-    Scd41::begin();
-    Sgp41::begin();
-    Veml7700Driver::begin();
-    Mq2::begin();
-    Pmsa003i::begin();
-    Ld2410c::begin();
-    Ics43434::begin();
+#define CRUMB(s) do { Serial.println(s); Serial.flush(); } while(0)
+    CRUMB("[Sensors] init: SHT40");   Sht40::begin();
+    CRUMB("[Sensors] init: BMP280");  Bmp280Driver::begin();
+    CRUMB("[Sensors] init: SCD41");   Scd41::begin();
+    CRUMB("[Sensors] init: SGP41");   Sgp41::begin();
+    CRUMB("[Sensors] init: VEML7700");Veml7700Driver::begin();
+    CRUMB("[Sensors] init: MQ2");     Mq2::begin();
+    CRUMB("[Sensors] init: PMSA003I");Pmsa003i::begin();
+    CRUMB("[Sensors] init: LD2410C"); Ld2410c::begin();
+    CRUMB("[Sensors] init: ICS43434");Ics43434::begin();
 
     Serial.println("[Sensors] All initialised — polling started");
     unsigned long lastSlowPoll = 0;
@@ -143,8 +144,8 @@ void taskSensors(void* param) {
         Mq2::read(g_readings);
         Ld2410c::read(g_readings);
         Pmsa003i::read(g_readings);
-        Ics43434::read(g_readings);
-        Veml7700Driver::read(g_readings);
+        Serial.println("[Sensors] poll: ICS43434"); Ics43434::read(g_readings);
+        Serial.println("[Sensors] poll: VEML7700"); Veml7700Driver::read(g_readings);
 
         if (now - lastSlowPoll >= POLL_SLOW_MS) {
             Scd41::read(g_readings);

@@ -30,5 +30,5 @@ private:
     static float _peakDb;
 
     static const uint32_t SAMPLE_RATE   = 44100;
-    static const size_t   SAMPLES_COUNT = 44100;  // 1-second window
+    static const size_t   SAMPLES_COUNT = 4410;   // 100ms window — 17.6KB heap vs 176KB
 };
