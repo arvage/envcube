@@ -89,6 +89,7 @@ int WifiManager::rssi() {
 
 // ── _connectWithCredentials ──────────────────────────────────
 void WifiManager::_connectWithCredentials() {
+    Serial.printf("[WiFi] Connecting to %s ...\n", g_config.wifi_ssid);
     WiFi.begin(g_config.wifi_ssid, g_config.wifi_password);
 
     unsigned long start = millis();
@@ -96,9 +97,24 @@ void WifiManager::_connectWithCredentials() {
         delay(250);
         Serial.print(".");
         if (millis() - start > (WIFI_CONNECT_TIMEOUT * 1000UL)) {
-            Serial.println("\n[WiFi] Connection timed out");
-            _state = WifiState::FAILED;
-            return;
+            Serial.println("\n[WiFi] Primary timed out");
+            if (strlen(g_config.wifi_ssid2) > 0) {
+                Serial.printf("[WiFi] Trying failover: %s ...\n", g_config.wifi_ssid2);
+                WiFi.begin(g_config.wifi_ssid2, g_config.wifi_password2);
+                unsigned long start2 = millis();
+                while (WiFi.status() != WL_CONNECTED) {
+                    delay(250);
+                    Serial.print(".");
+                    if (millis() - start2 > (WIFI_CONNECT_TIMEOUT * 1000UL)) {
+                        Serial.println("\n[WiFi] Failover timed out");
+                        _state = WifiState::FAILED;
+                        return;
+                    }
+                }
+            } else {
+                _state = WifiState::FAILED;
+                return;
+            }
         }
     }
 

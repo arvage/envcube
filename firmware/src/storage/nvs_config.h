@@ -14,6 +14,8 @@
 #define NVS_MAX_SSID          64
 #define NVS_MAX_PASSWORD      64
 #define NVS_MAX_MQTT_HOST     64
+#define NVS_MAX_MQTT_USER     64
+#define NVS_MAX_MQTT_PASS     64
 #define NVS_NAMESPACE         "envcube"
 
 // ── Runtime config struct ────────────────────────────────────
@@ -23,15 +25,19 @@ struct EnvCubeConfig {
     char     room_name[NVS_MAX_ROOM_NAME];  // e.g. "Kitchen"
     uint8_t  cube_id;                       // 0–255, derived from MAC
 
-    // WiFi credentials (stored encrypted in NVS)
+    // WiFi credentials
     char     wifi_ssid[NVS_MAX_SSID];
     char     wifi_password[NVS_MAX_PASSWORD];
+    char     wifi_ssid2[NVS_MAX_SSID];      // failover network
+    char     wifi_password2[NVS_MAX_PASSWORD];
     bool     wifi_configured;
 
     // MQTT
     char     mqtt_host[NVS_MAX_MQTT_HOST];
     uint16_t mqtt_port;
     bool     mqtt_enabled;
+    char     mqtt_user[NVS_MAX_MQTT_USER];
+    char     mqtt_password[NVS_MAX_MQTT_PASS];
 
     // Location for weather (set during provisioning)
     float    latitude;

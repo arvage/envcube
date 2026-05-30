@@ -52,13 +52,17 @@ bool NvsConfig::load() {
 
     if (g_config.is_provisioned) {
         _prefs.getString("room_name",      g_config.room_name,     NVS_MAX_ROOM_NAME);
-        _prefs.getString("wifi_ssid",      g_config.wifi_ssid,     NVS_MAX_SSID);
-        _prefs.getString("wifi_password",  g_config.wifi_password, NVS_MAX_PASSWORD);
+        _prefs.getString("wifi_ssid",      g_config.wifi_ssid,      NVS_MAX_SSID);
+        _prefs.getString("wifi_password",  g_config.wifi_password,  NVS_MAX_PASSWORD);
+        _prefs.getString("wifi_ssid2",     g_config.wifi_ssid2,     NVS_MAX_SSID);
+        _prefs.getString("wifi_password2", g_config.wifi_password2, NVS_MAX_PASSWORD);
         g_config.wifi_configured = (strlen(g_config.wifi_ssid) > 0);
 
         _prefs.getString("mqtt_host",      g_config.mqtt_host,     NVS_MAX_MQTT_HOST);
         g_config.mqtt_port    = _prefs.getUShort("mqtt_port",     MQTT_PORT);
         g_config.mqtt_enabled = _prefs.getBool("mqtt_enabled",    false);
+        _prefs.getString("mqtt_user",      g_config.mqtt_user,     NVS_MAX_MQTT_USER);
+        _prefs.getString("mqtt_pass",      g_config.mqtt_password, NVS_MAX_MQTT_PASS);
 
         g_config.latitude  = _prefs.getFloat("latitude",  0.0f);
         g_config.longitude = _prefs.getFloat("longitude", 0.0f);
@@ -98,11 +102,15 @@ bool NvsConfig::save() {
 
     _prefs.putBool("provisioned",  g_config.is_provisioned);
     _prefs.putString("room_name",  g_config.room_name);
-    _prefs.putString("wifi_ssid",  g_config.wifi_ssid);
-    _prefs.putString("wifi_password", g_config.wifi_password);
-    _prefs.putString("mqtt_host",  g_config.mqtt_host);
-    _prefs.putUShort("mqtt_port",  g_config.mqtt_port);
-    _prefs.putBool("mqtt_enabled", g_config.mqtt_enabled);
+    _prefs.putString("wifi_ssid",      g_config.wifi_ssid);
+    _prefs.putString("wifi_password",  g_config.wifi_password);
+    _prefs.putString("wifi_ssid2",     g_config.wifi_ssid2);
+    _prefs.putString("wifi_password2", g_config.wifi_password2);
+    _prefs.putString("mqtt_host",      g_config.mqtt_host);
+    _prefs.putUShort("mqtt_port",      g_config.mqtt_port);
+    _prefs.putBool("mqtt_enabled",     g_config.mqtt_enabled);
+    _prefs.putString("mqtt_user",      g_config.mqtt_user);
+    _prefs.putString("mqtt_pass",      g_config.mqtt_password);
     _prefs.putFloat("latitude",    g_config.latitude);
     _prefs.putFloat("longitude",   g_config.longitude);
 

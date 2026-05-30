@@ -242,8 +242,11 @@ void MqttClient::_connect() {
 
     Serial.printf("[MQTT] Connecting as %s ...\n", clientId);
 
+    const char* mqttUser = strlen(g_config.mqtt_user)     > 0 ? g_config.mqtt_user     : nullptr;
+    const char* mqttPass = strlen(g_config.mqtt_password) > 0 ? g_config.mqtt_password : nullptr;
+
     bool ok = _mqtt.connect(clientId,
-                            nullptr, nullptr,          // no auth
+                            mqttUser, mqttPass,
                             lwtTopic, 1,               // LWT QoS 1
                             true,                      // LWT retained
                             lwtPayload,

@@ -1,12 +1,14 @@
 // ============================================================
 //  EnvCube — Web UI
-//  Serves a single-page config + sensor console on port 80.
-//  Endpoints:
-//    GET  /              → HTML app
-//    GET  /api/config    → current config as JSON
-//    POST /api/config    → save config (room, wifi, mqtt)
-//    GET  /api/readings  → live sensor readings as JSON
-//    POST /api/reboot    → restart device
+//  GET  /              → HTML app (5 tabs)
+//  GET  /api/config    → current config as JSON
+//  POST /api/config    → save config
+//  GET  /api/readings  → live sensor readings as JSON
+//  GET  /api/weather   → current outdoor weather as JSON
+//  POST /api/weather/fetch → trigger immediate weather fetch
+//  GET  /api/i2cscan   → scan I2C bus, return found addresses
+//  POST /api/reboot    → restart device
+//  POST /api/reset     → factory reset + restart
 // ============================================================
 
 #include "web_ui.h"
@@ -14,8 +16,11 @@
 #include <WiFi.h>
 #include <Wire.h>
 #include <ArduinoJson.h>
+#include "../config.h"
 #include "../storage/nvs_config.h"
 #include "../alerts/alert_engine.h"
+#include "../display/oled.h"
+#include "../connectivity/weather.h"
 
 static WebServer _server(80);
 static bool      _started = false;
@@ -31,134 +36,165 @@ static const char HTML[] PROGMEM = R"rawhtml(
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,sans-serif;background:#0f1117;color:#e0e0e0;min-height:100vh}
-header{background:#1a1d27;padding:16px 20px;border-bottom:1px solid #2a2d3a}
-header h1{font-size:1.2rem;color:#7eb8f7;letter-spacing:.5px}
-header p{font-size:.75rem;color:#666;margin-top:3px}
-nav{display:flex;background:#1a1d27;border-bottom:1px solid #2a2d3a}
-nav button{flex:1;padding:12px 8px;background:none;border:none;color:#888;cursor:pointer;font-size:.85rem;border-bottom:2px solid transparent;transition:all .2s}
+header{background:#1a1d27;padding:14px 20px;border-bottom:1px solid #2a2d3a;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+header h1{font-size:1.1rem;color:#7eb8f7;letter-spacing:.5px}
+header p{font-size:.72rem;color:#666}
+.ver{font-size:.7rem;color:#444;background:#1e2130;padding:2px 8px;border-radius:4px}
+nav{display:flex;background:#1a1d27;border-bottom:1px solid #2a2d3a;overflow-x:auto}
+nav button{flex-shrink:0;padding:11px 14px;background:none;border:none;color:#888;cursor:pointer;font-size:.82rem;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s}
 nav button.active{color:#7eb8f7;border-bottom-color:#7eb8f7}
-.tab{display:none;padding:20px;max-width:600px;margin:0 auto}
+.tab{display:none;padding:18px;max-width:620px;margin:0 auto}
 .tab.active{display:block}
-.field{margin-bottom:14px}
-label{display:block;font-size:.78rem;color:#888;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px}
-input[type=text],input[type=password],input[type=number]{width:100%;padding:9px 12px;background:#1a1d27;border:1px solid #2a2d3a;border-radius:6px;color:#e0e0e0;font-size:.95rem}
+.field{margin-bottom:13px}
+label{display:block;font-size:.75rem;color:#888;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px}
+input[type=text],input[type=password],input[type=number]{width:100%;padding:8px 11px;background:#1a1d27;border:1px solid #2a2d3a;border-radius:6px;color:#e0e0e0;font-size:.92rem}
 input:focus{outline:none;border-color:#7eb8f7}
-input:disabled{color:#555;cursor:default}
-.row{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-.row input[type=checkbox]{width:18px;height:18px;accent-color:#7eb8f7;cursor:pointer}
-.row label{margin:0;text-transform:none;font-size:.9rem;color:#ccc;cursor:pointer}
-.actions{margin-top:20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.btn{padding:9px 20px;border-radius:6px;border:none;cursor:pointer;font-size:.88rem;font-weight:600;transition:opacity .15s}
+input:disabled{color:#555}
+.row{display:flex;align-items:center;gap:10px;margin-bottom:13px}
+.row input[type=checkbox]{width:17px;height:17px;accent-color:#7eb8f7;cursor:pointer}
+.row label{margin:0;text-transform:none;font-size:.88rem;color:#ccc;cursor:pointer}
+.half{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.actions{margin-top:18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.btn{padding:8px 18px;border-radius:6px;border:none;cursor:pointer;font-size:.86rem;font-weight:600;transition:opacity .15s}
 .btn-primary{background:#7eb8f7;color:#0f1117}
 .btn-danger{background:#c0392b;color:#fff}
+.btn-warn{background:#e67e22;color:#fff}
+.btn-ghost{background:#1e2130;color:#aaa;border:1px solid #2a2d3a}
 .btn:hover{opacity:.82}
-.toast{font-size:.83rem;padding:6px 10px;border-radius:5px;display:none}
+.toast{font-size:.8rem;padding:5px 10px;border-radius:5px;display:none}
 .toast.ok{background:#1a3a24;color:#5cc97a}
 .toast.err{background:#3a1a1a;color:#e05c5c}
-table{width:100%;border-collapse:collapse;font-size:.88rem}
-th{text-align:left;padding:8px 10px;color:#555;font-weight:500;font-size:.75rem;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid #2a2d3a}
-td{padding:10px;border-bottom:1px solid #1e2130;vertical-align:middle}
-td.label{color:#888;width:40%}
-td.value{font-family:monospace;font-size:.95rem;font-weight:600}
-td.status{width:20%;text-align:right}
-.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.72rem;font-weight:700;letter-spacing:.3px}
+table{width:100%;border-collapse:collapse;font-size:.86rem}
+th{text-align:left;padding:7px 9px;color:#555;font-weight:500;font-size:.73rem;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid #2a2d3a}
+td{padding:9px;border-bottom:1px solid #1e2130;vertical-align:middle}
+td.lbl{color:#888;width:42%}
+td.val{font-family:monospace;font-size:.9rem;font-weight:600}
+td.sta{width:18%;text-align:right}
+.badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:.7rem;font-weight:700}
 .badge-ok{background:#1a3a24;color:#5cc97a}
 .badge-err{background:#3a1a1a;color:#e05c5c}
 .badge-na{background:#1e2130;color:#555}
-.hint{font-size:.75rem;color:#555;margin-top:4px}
-.ts{font-size:.72rem;color:#444;margin-top:10px;text-align:right}
-.section-title{font-size:.72rem;color:#555;text-transform:uppercase;letter-spacing:.5px;margin:18px 0 10px}
+.divider{font-size:.72rem;color:#555;text-transform:uppercase;letter-spacing:.5px;margin:16px 0 10px;padding-bottom:5px;border-bottom:1px solid #2a2d3a}
+.hint{font-size:.72rem;color:#555;margin-top:3px}
+.ts{font-size:.7rem;color:#444;margin-top:8px;text-align:right}
+.weather-card{background:#1a1d27;border:1px solid #2a2d3a;border-radius:8px;padding:14px;margin-bottom:14px}
+.weather-card h3{font-size:.8rem;color:#666;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px}
+.weather-big{font-size:2rem;font-weight:700;color:#7eb8f7}
+.weather-row{display:flex;gap:20px;margin-top:6px;font-size:.85rem;color:#aaa}
 </style>
 </head>
 <body>
 <header>
-  <h1>&#9672; EnvCube</h1>
-  <p id="hdr-sub">Connecting...</p>
+  <div><h1>&#9672; EnvCube</h1><p id="hdr-sub">Connecting...</p></div>
+  <span class="ver" id="ver-badge">v—</span>
 </header>
 <nav>
   <button class="active" onclick="show('console',this)">Console</button>
   <button onclick="show('device',this)">Device</button>
   <button onclick="show('wifi',this)">WiFi</button>
   <button onclick="show('mqtt',this)">MQTT</button>
+  <button onclick="show('weather',this)">Weather</button>
 </nav>
 
 <!-- Console -->
 <div id="tab-console" class="tab active">
+  <div class="divider">Indoor sensors</div>
   <table>
-    <thead><tr><th>Sensor</th><th class="value">Reading</th><th style="text-align:right">Status</th></tr></thead>
+    <thead><tr><th>Sensor</th><th class="val">Reading</th><th style="text-align:right">Status</th></tr></thead>
     <tbody>
-      <tr><td class="label">Temperature</td><td class="value" id="r-temp">—</td><td class="status" id="s-temp"><span class="badge badge-na">—</span></td></tr>
-      <tr><td class="label">Humidity</td><td class="value" id="r-hum">—</td><td class="status" id="s-hum"><span class="badge badge-na">—</span></td></tr>
-      <tr><td class="label">Pressure</td><td class="value" id="r-pres">—</td><td class="status" id="s-pres"><span class="badge badge-na">—</span></td></tr>
-      <tr><td class="label">CO&#x2082;</td><td class="value" id="r-co2">—</td><td class="status" id="s-co2"><span class="badge badge-na">—</span></td></tr>
-      <tr><td class="label">VOC Index</td><td class="value" id="r-voc">—</td><td class="status" id="s-voc"><span class="badge badge-na">—</span></td></tr>
-      <tr><td class="label">NOx Index</td><td class="value" id="r-nox">—</td><td class="status" id="s-nox"><span class="badge badge-na">—</span></td></tr>
-      <tr><td class="label">PM2.5</td><td class="value" id="r-pm25">—</td><td class="status" id="s-pm25"><span class="badge badge-na">—</span></td></tr>
-      <tr><td class="label">PM10</td><td class="value" id="r-pm10">—</td><td class="status" id="s-pm10"><span class="badge badge-na">—</span></td></tr>
-      <tr><td class="label">Noise</td><td class="value" id="r-noise">—</td><td class="status" id="s-noise"><span class="badge badge-na">—</span></td></tr>
-      <tr><td class="label">Light</td><td class="value" id="r-lux">—</td><td class="status" id="s-lux"><span class="badge badge-na">—</span></td></tr>
-      <tr><td class="label">Smoke (raw)</td><td class="value" id="r-smoke">—</td><td class="status" id="s-smoke"><span class="badge badge-na">—</span></td></tr>
-      <tr><td class="label">Presence</td><td class="value" id="r-presence">—</td><td class="status" id="s-presence"><span class="badge badge-na">—</span></td></tr>
+      <tr><td class="lbl">Temperature</td><td class="val" id="r-temp">—</td><td class="sta" id="s-temp"><span class="badge badge-na">—</span></td></tr>
+      <tr><td class="lbl">Humidity</td><td class="val" id="r-hum">—</td><td class="sta" id="s-hum"><span class="badge badge-na">—</span></td></tr>
+      <tr><td class="lbl">Pressure</td><td class="val" id="r-pres">—</td><td class="sta" id="s-pres"><span class="badge badge-na">—</span></td></tr>
+      <tr><td class="lbl">CO&#x2082;</td><td class="val" id="r-co2">—</td><td class="sta" id="s-co2"><span class="badge badge-na">—</span></td></tr>
+      <tr><td class="lbl">VOC Index</td><td class="val" id="r-voc">—</td><td class="sta" id="s-voc"><span class="badge badge-na">—</span></td></tr>
+      <tr><td class="lbl">NOx Index</td><td class="val" id="r-nox">—</td><td class="sta" id="s-nox"><span class="badge badge-na">—</span></td></tr>
+      <tr><td class="lbl">PM2.5</td><td class="val" id="r-pm25">—</td><td class="sta" id="s-pm25"><span class="badge badge-na">—</span></td></tr>
+      <tr><td class="lbl">PM10</td><td class="val" id="r-pm10">—</td><td class="sta" id="s-pm10"><span class="badge badge-na">—</span></td></tr>
+      <tr><td class="lbl">Noise</td><td class="val" id="r-noise">—</td><td class="sta" id="s-noise"><span class="badge badge-na">—</span></td></tr>
+      <tr><td class="lbl">Light</td><td class="val" id="r-lux">—</td><td class="sta" id="s-lux"><span class="badge badge-na">—</span></td></tr>
+      <tr><td class="lbl">Smoke (raw)</td><td class="val" id="r-smoke">—</td><td class="sta" id="s-smoke"><span class="badge badge-na">—</span></td></tr>
+      <tr><td class="lbl">Presence</td><td class="val" id="r-pres2">—</td><td class="sta" id="s-pres2"><span class="badge badge-na">—</span></td></tr>
     </tbody>
   </table>
+  <div class="divider" style="margin-top:18px">Outdoor weather</div>
+  <div class="weather-card" id="weather-card">
+    <h3>Outdoor conditions</h3>
+    <div class="weather-big" id="w-temp">—</div>
+    <div class="weather-row">
+      <span>Humidity: <b id="w-hum">—</b></span>
+      <span>UV: <b id="w-uv">—</b></span>
+      <span id="w-cond">—</span>
+    </div>
+  </div>
   <p class="ts" id="ts">Not yet updated</p>
 </div>
 
 <!-- Device -->
 <div id="tab-device" class="tab">
-  <div class="field">
-    <label>Room Name</label>
-    <input type="text" id="room_name" maxlength="31" placeholder="e.g. Kitchen">
+  <div class="field"><label>Room Name</label><input type="text" id="room_name" maxlength="31"></div>
+  <div class="half">
+    <div class="field"><label>Cube ID</label><input type="text" id="cube_id" disabled></div>
+    <div class="field"><label>Firmware</label><input type="text" id="fw_ver" disabled></div>
   </div>
-  <div class="field">
-    <label>Cube ID</label>
-    <input type="text" id="cube_id" disabled>
-  </div>
-  <div class="field">
-    <label>IP Address</label>
-    <input type="text" id="ip_addr" disabled>
-  </div>
+  <div class="field"><label>IP Address</label><input type="text" id="ip_addr" disabled></div>
   <div class="actions">
     <button class="btn btn-primary" onclick="save()">Save</button>
-    <button class="btn btn-danger" onclick="doReboot()">Reboot</button>
+    <button class="btn btn-warn" onclick="doReboot()">Reboot</button>
+    <button class="btn btn-danger" onclick="doReset()">Factory Reset</button>
     <span class="toast" id="toast-d"></span>
   </div>
 </div>
 
 <!-- WiFi -->
 <div id="tab-wifi" class="tab">
-  <div class="field">
-    <label>SSID</label>
-    <input type="text" id="wifi_ssid" maxlength="63">
-  </div>
-  <div class="field">
-    <label>Password</label>
-    <input type="password" id="wifi_password" maxlength="63" placeholder="Leave blank to keep current">
-    <p class="hint">Device will reboot to apply new WiFi credentials.</p>
-  </div>
-  <div class="actions">
-    <button class="btn btn-primary" onclick="save()">Save &amp; Reboot</button>
-    <span class="toast" id="toast-w"></span>
-  </div>
+  <div class="divider">Primary network</div>
+  <div class="field"><label>SSID</label><input type="text" id="wifi_ssid" maxlength="63"></div>
+  <div class="field"><label>Password</label><input type="password" id="wifi_password" maxlength="63" placeholder="Leave blank to keep current"></div>
+  <div class="divider">Failover network</div>
+  <div class="field"><label>SSID</label><input type="text" id="wifi_ssid2" maxlength="63" placeholder="Optional — used if primary fails"></div>
+  <div class="field"><label>Password</label><input type="password" id="wifi_password2" maxlength="63" placeholder="Leave blank to keep current"></div>
+  <p class="hint" style="margin-bottom:10px">Device reboots to apply new WiFi credentials.</p>
+  <div class="actions"><button class="btn btn-primary" onclick="save()">Save &amp; Reboot</button><span class="toast" id="toast-w"></span></div>
 </div>
 
 <!-- MQTT -->
 <div id="tab-mqtt" class="tab">
-  <div class="field">
-    <label>Broker Host / IP</label>
-    <input type="text" id="mqtt_host" maxlength="63" placeholder="e.g. 192.168.1.100">
+  <div class="field"><label>Broker Host / IP</label><input type="text" id="mqtt_host" maxlength="63" placeholder="e.g. 192.168.1.100"></div>
+  <div class="half">
+    <div class="field"><label>Port</label><input type="number" id="mqtt_port" min="1" max="65535"></div>
+    <div class="field" style="display:flex;align-items:flex-end;padding-bottom:1px">
+      <div class="row" style="margin:0"><input type="checkbox" id="mqtt_enabled"><label for="mqtt_enabled">Enabled</label></div>
+    </div>
   </div>
-  <div class="field">
-    <label>Port</label>
-    <input type="number" id="mqtt_port" min="1" max="65535" style="max-width:120px">
+  <div class="divider">Authentication (optional)</div>
+  <div class="field"><label>Username</label><input type="text" id="mqtt_user" maxlength="63" placeholder="Leave blank if not required"></div>
+  <div class="field"><label>Password</label><input type="password" id="mqtt_password" maxlength="63" placeholder="Leave blank to keep current"></div>
+  <div class="actions"><button class="btn btn-primary" onclick="save()">Save</button><span class="toast" id="toast-m"></span></div>
+</div>
+
+<!-- Weather -->
+<div id="tab-weather" class="tab">
+  <div class="divider">Location</div>
+  <div class="half">
+    <div class="field"><label>Latitude</label><input type="text" id="latitude" maxlength="12" placeholder="e.g. 33.6846"></div>
+    <div class="field"><label>Longitude</label><input type="text" id="longitude" maxlength="12" placeholder="e.g. -117.826"></div>
   </div>
-  <div class="row">
-    <input type="checkbox" id="mqtt_enabled">
-    <label for="mqtt_enabled">Enable MQTT publishing</label>
+  <p class="hint" style="margin-bottom:14px">Used for Open-Meteo weather fetch. Updates every 10 minutes when connected.</p>
+  <div class="divider">Current conditions</div>
+  <div class="weather-card">
+    <h3>Outdoor</h3>
+    <div class="weather-big" id="wt-temp">—</div>
+    <div class="weather-row">
+      <span>Humidity: <b id="wt-hum">—</b></span>
+      <span>UV: <b id="wt-uv">—</b></span>
+      <span id="wt-cond">—</span>
+    </div>
+    <p class="ts" id="wt-age">—</p>
   </div>
   <div class="actions">
-    <button class="btn btn-primary" onclick="save()">Save</button>
-    <span class="toast" id="toast-m"></span>
+    <button class="btn btn-primary" onclick="save()">Save Location</button>
+    <button class="btn btn-ghost" onclick="fetchWeather()">Fetch Now</button>
+    <span class="toast" id="toast-weather"></span>
   </div>
 </div>
 
@@ -170,74 +206,115 @@ function show(t,btn){
   document.getElementById('tab-'+t).classList.add('active');
   btn.classList.add('active');
   _tab=t;
+  if(t==='weather')loadWeather();
 }
 function badge(ok){return ok?'<span class="badge badge-ok">OK</span>':'<span class="badge badge-err">ERR</span>';}
-function set(vid,val,sid,ok){
-  document.getElementById(vid).textContent=val;
-  document.getElementById(sid).innerHTML=badge(ok);
-}
+function set(vid,val,sid,ok){document.getElementById(vid).textContent=val;document.getElementById(sid).innerHTML=badge(ok);}
+var WMO={0:'Clear sky',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',45:'Fog',48:'Icy fog',51:'Light drizzle',61:'Light rain',63:'Rain',65:'Heavy rain',71:'Light snow',73:'Snow',80:'Rain showers',81:'Showers',95:'Thunderstorm'};
+function wmoDesc(c){return WMO[c]||('Code '+c);}
 function loadReadings(){
   fetch('/api/readings').then(function(r){return r.json();}).then(function(d){
-    set('r-temp', d.thermal_ok?d.temperature_c.toFixed(1)+' °C':'—','s-temp',d.thermal_ok);
-    set('r-hum',  d.thermal_ok?d.humidity_rh.toFixed(1)+' %':'—','s-hum',d.thermal_ok);
-    set('r-pres', d.thermal_ok?d.pressure_hpa.toFixed(1)+' hPa':'—','s-pres',d.thermal_ok);
-    set('r-co2',  d.co2_ok?d.co2_ppm+' ppm':'—','s-co2',d.co2_ok);
-    set('r-voc',  d.aq_ok?String(d.voc_index):'—','s-voc',d.aq_ok);
-    set('r-nox',  d.aq_ok?String(d.nox_index):'—','s-nox',d.aq_ok);
-    set('r-pm25', d.pm_ok?d.pm2_5+' μg/m³':'—','s-pm25',d.pm_ok);
-    set('r-pm10', d.pm_ok?d.pm10+' μg/m³':'—','s-pm10',d.pm_ok);
+    set('r-temp',d.thermal_ok?d.temperature_c.toFixed(1)+' °C':'—','s-temp',d.thermal_ok);
+    set('r-hum', d.thermal_ok?d.humidity_rh.toFixed(1)+' %':'—','s-hum',d.thermal_ok);
+    set('r-pres',d.thermal_ok?d.pressure_hpa.toFixed(1)+' hPa':'—','s-pres',d.thermal_ok);
+    set('r-co2', d.co2_ok?d.co2_ppm+' ppm':'—','s-co2',d.co2_ok);
+    set('r-voc', d.aq_ok?String(d.voc_index):'—','s-voc',d.aq_ok);
+    set('r-nox', d.aq_ok?String(d.nox_index):'—','s-nox',d.aq_ok);
+    set('r-pm25',d.pm_ok?d.pm2_5+' μg/m³':'—','s-pm25',d.pm_ok);
+    set('r-pm10',d.pm_ok?d.pm10+' μg/m³':'—','s-pm10',d.pm_ok);
     set('r-noise',d.noise_ok?d.noise_db.toFixed(1)+' dBA':'—','s-noise',d.noise_ok);
-    set('r-lux',  d.lux_ok?d.lux+' lx':'—','s-lux',d.lux_ok);
+    set('r-lux', d.lux_ok?d.lux+' lx':'—','s-lux',d.lux_ok);
     set('r-smoke',d.smoke_ok?String(d.smoke_raw):'—','s-smoke',d.smoke_ok);
-    var presVal=d.presence_ok?(d.presence?'Yes ('+d.presence_cm+' cm)':'No'):'—';
-    set('r-presence',presVal,'s-presence',d.presence_ok);
+    var p=d.presence_ok?(d.presence?'Yes ('+d.presence_cm+' cm)':'No'):'—';
+    set('r-pres2',p,'s-pres2',d.presence_ok);
     document.getElementById('ts').textContent='Updated: '+new Date().toLocaleTimeString();
+  }).catch(function(){});
+  fetch('/api/weather').then(function(r){return r.json();}).then(function(w){
+    if(w.valid){
+      document.getElementById('w-temp').textContent=w.temp_f.toFixed(1)+'°F';
+      document.getElementById('w-hum').textContent=w.humidity.toFixed(0)+'%';
+      document.getElementById('w-uv').textContent=w.uv_index.toFixed(1);
+      document.getElementById('w-cond').textContent=wmoDesc(w.weather_code);
+    } else {
+      document.getElementById('w-temp').textContent='No data';
+      document.getElementById('w-cond').textContent='Set lat/lon in Weather tab';
+    }
+  }).catch(function(){});
+}
+function loadWeather(){
+  fetch('/api/weather').then(function(r){return r.json();}).then(function(w){
+    if(w.valid){
+      document.getElementById('wt-temp').textContent=w.temp_f.toFixed(1)+'°F';
+      document.getElementById('wt-hum').textContent=w.humidity.toFixed(0)+'%';
+      document.getElementById('wt-uv').textContent=w.uv_index.toFixed(1);
+      document.getElementById('wt-cond').textContent=wmoDesc(w.weather_code);
+      var age=Math.round((Date.now()-w.fetched_ms)/60000);
+      document.getElementById('wt-age').textContent='Fetched '+age+' min ago';
+    } else {
+      document.getElementById('wt-temp').textContent='No data';
+      document.getElementById('wt-cond').textContent=w.lat_set?'Waiting for first fetch':'Set latitude and longitude below';
+    }
   }).catch(function(){});
 }
 function loadConfig(){
   fetch('/api/config').then(function(r){return r.json();}).then(function(d){
     document.getElementById('room_name').value=d.room_name||'';
     document.getElementById('cube_id').value='#'+d.cube_id;
+    document.getElementById('fw_ver').value=d.firmware_version||'';
     document.getElementById('ip_addr').value=d.ip_addr||'';
     document.getElementById('wifi_ssid').value=d.wifi_ssid||'';
+    document.getElementById('wifi_ssid2').value=d.wifi_ssid2||'';
     document.getElementById('mqtt_host').value=d.mqtt_host||'';
     document.getElementById('mqtt_port').value=d.mqtt_port||1883;
     document.getElementById('mqtt_enabled').checked=!!d.mqtt_enabled;
+    document.getElementById('mqtt_user').value=d.mqtt_user||'';
+    document.getElementById('latitude').value=d.latitude||'';
+    document.getElementById('longitude').value=d.longitude||'';
     document.getElementById('hdr-sub').textContent=(d.room_name||'EnvCube')+' · '+d.ip_addr;
+    document.getElementById('ver-badge').textContent='v'+d.firmware_version;
   }).catch(function(){});
 }
 function showToast(id,ok,msg){
   var el=document.getElementById(id);
-  el.textContent=msg;
-  el.className='toast '+(ok?'ok':'err');
-  el.style.display='inline-block';
-  if(ok) setTimeout(function(){el.style.display='none';},3000);
+  el.textContent=msg;el.className='toast '+(ok?'ok':'err');el.style.display='inline-block';
+  if(ok)setTimeout(function(){el.style.display='none';},3000);
 }
 function save(){
+  var toastMap={console:'toast-d',device:'toast-d',wifi:'toast-w',mqtt:'toast-m',weather:'toast-weather'};
+  var tid=toastMap[_tab]||'toast-d';
   var body={
     room_name:document.getElementById('room_name').value,
     wifi_ssid:document.getElementById('wifi_ssid').value,
     wifi_password:document.getElementById('wifi_password').value,
+    wifi_ssid2:document.getElementById('wifi_ssid2').value,
+    wifi_password2:document.getElementById('wifi_password2').value,
     mqtt_host:document.getElementById('mqtt_host').value,
     mqtt_port:parseInt(document.getElementById('mqtt_port').value)||1883,
-    mqtt_enabled:document.getElementById('mqtt_enabled').checked
+    mqtt_enabled:document.getElementById('mqtt_enabled').checked,
+    mqtt_user:document.getElementById('mqtt_user').value,
+    mqtt_password:document.getElementById('mqtt_password').value,
+    latitude:parseFloat(document.getElementById('latitude').value)||0,
+    longitude:parseFloat(document.getElementById('longitude').value)||0
   };
-  var toastMap={console:'toast-d',device:'toast-d',wifi:'toast-w',mqtt:'toast-m'};
-  var tid=toastMap[_tab]||'toast-d';
   fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
     .then(function(r){return r.json();}).then(function(d){
-      if(d.reboot){showToast(tid,true,'Saved — rebooting…');setTimeout(function(){loadConfig();},5000);}
-      else{showToast(tid,d.ok,'Saved');loadConfig();}
+      if(d.reboot){showToast(tid,true,'Saved — rebooting…');}
+      else{showToast(tid,d.ok?'ok':'err',d.ok?'Saved':'Error');if(d.ok)loadConfig();}
     }).catch(function(){showToast(tid,false,'Error');});
 }
-function doReboot(){
-  if(!confirm('Reboot EnvCube?'))return;
-  fetch('/api/reboot',{method:'POST'}).finally(function(){
-    setTimeout(function(){loadConfig();loadReadings();},5000);
-  });
+function fetchWeather(){
+  fetch('/api/weather/fetch',{method:'POST'}).then(function(r){return r.json();}).then(function(d){
+    showToast('toast-weather',d.ok,d.ok?'Fetched!':'Fetch failed (check lat/lon)');
+    if(d.ok)setTimeout(loadWeather,500);
+  }).catch(function(){showToast('toast-weather',false,'Error');});
 }
-loadConfig();
-loadReadings();
+function doReboot(){if(!confirm('Reboot EnvCube?'))return;fetch('/api/reboot',{method:'POST'});}
+function doReset(){
+  if(!confirm('FACTORY RESET — all config will be erased. Are you sure?'))return;
+  if(!confirm('This cannot be undone. Continue?'))return;
+  fetch('/api/reset',{method:'POST'}).finally(function(){showToast('toast-d',true,'Resetting…');});
+}
+loadConfig();loadReadings();
 setInterval(loadReadings,3000);
 </script>
 </body>
@@ -252,68 +329,73 @@ static void handleRoot() {
 
 static void handleGetConfig() {
     JsonDocument doc;
-    doc["room_name"]    = g_config.room_name;
-    doc["cube_id"]      = g_config.cube_id;
-    doc["ip_addr"]      = WiFi.localIP().toString();
-    doc["wifi_ssid"]    = g_config.wifi_ssid;
-    doc["mqtt_host"]    = g_config.mqtt_host;
-    doc["mqtt_port"]    = g_config.mqtt_port;
-    doc["mqtt_enabled"] = g_config.mqtt_enabled;
+    doc["room_name"]         = g_config.room_name;
+    doc["cube_id"]           = g_config.cube_id;
+    doc["firmware_version"]  = ENVCUBE_VERSION;
+    doc["ip_addr"]           = WiFi.localIP().toString();
+    doc["wifi_ssid"]         = g_config.wifi_ssid;
+    doc["wifi_ssid2"]        = g_config.wifi_ssid2;
+    doc["mqtt_host"]         = g_config.mqtt_host;
+    doc["mqtt_port"]         = g_config.mqtt_port;
+    doc["mqtt_enabled"]      = g_config.mqtt_enabled;
+    doc["mqtt_user"]         = g_config.mqtt_user;
+    // mqtt_password intentionally omitted from GET
+    doc["latitude"]          = g_config.latitude;
+    doc["longitude"]         = g_config.longitude;
     String out;
     serializeJson(doc, out);
     _server.send(200, "application/json", out);
 }
 
 static void handlePostConfig() {
-    if (!_server.hasArg("plain")) {
-        _server.send(400, "application/json", "{\"ok\":false}");
-        return;
-    }
+    if (!_server.hasArg("plain")) { _server.send(400, "application/json", "{\"ok\":false}"); return; }
     JsonDocument doc;
-    if (deserializeJson(doc, _server.arg("plain"))) {
-        _server.send(400, "application/json", "{\"ok\":false}");
-        return;
-    }
+    if (deserializeJson(doc, _server.arg("plain"))) { _server.send(400, "application/json", "{\"ok\":false}"); return; }
 
     bool needReboot = false;
 
-    if (doc["room_name"].is<const char*>()) {
-        strlcpy(g_config.room_name, doc["room_name"].as<const char*>(),
-                sizeof(g_config.room_name));
-    }
+    if (doc["room_name"].is<const char*>())
+        strlcpy(g_config.room_name, doc["room_name"].as<const char*>(), sizeof(g_config.room_name));
 
-    const char* newSsid = doc["wifi_ssid"].is<const char*>()
-                          ? doc["wifi_ssid"].as<const char*>() : "";
+    // WiFi primary
+    const char* newSsid = doc["wifi_ssid"].is<const char*>() ? doc["wifi_ssid"].as<const char*>() : "";
     if (strlen(newSsid) > 0) {
         strlcpy(g_config.wifi_ssid, newSsid, sizeof(g_config.wifi_ssid));
-        const char* newPass = doc["wifi_password"].is<const char*>()
-                              ? doc["wifi_password"].as<const char*>() : "";
-        if (strlen(newPass) > 0) {
+        const char* newPass = doc["wifi_password"].is<const char*>() ? doc["wifi_password"].as<const char*>() : "";
+        if (strlen(newPass) > 0)
             strlcpy(g_config.wifi_password, newPass, sizeof(g_config.wifi_password));
-        }
         needReboot = true;
     }
 
-    if (doc["mqtt_host"].is<const char*>()) {
-        strlcpy(g_config.mqtt_host, doc["mqtt_host"].as<const char*>(),
-                sizeof(g_config.mqtt_host));
-    }
-    if (doc["mqtt_port"].is<int>()) {
+    // WiFi failover
+    if (doc["wifi_ssid2"].is<const char*>())
+        strlcpy(g_config.wifi_ssid2, doc["wifi_ssid2"].as<const char*>(), sizeof(g_config.wifi_ssid2));
+    const char* newPass2 = doc["wifi_password2"].is<const char*>() ? doc["wifi_password2"].as<const char*>() : "";
+    if (strlen(newPass2) > 0)
+        strlcpy(g_config.wifi_password2, newPass2, sizeof(g_config.wifi_password2));
+
+    // MQTT
+    if (doc["mqtt_host"].is<const char*>())
+        strlcpy(g_config.mqtt_host, doc["mqtt_host"].as<const char*>(), sizeof(g_config.mqtt_host));
+    if (doc["mqtt_port"].is<int>())
         g_config.mqtt_port = (uint16_t)doc["mqtt_port"].as<int>();
-    }
-    if (doc["mqtt_enabled"].is<bool>()) {
+    if (doc["mqtt_enabled"].is<bool>())
         g_config.mqtt_enabled = doc["mqtt_enabled"].as<bool>();
-    }
+    if (doc["mqtt_user"].is<const char*>())
+        strlcpy(g_config.mqtt_user, doc["mqtt_user"].as<const char*>(), sizeof(g_config.mqtt_user));
+    const char* newMqttPass = doc["mqtt_password"].is<const char*>() ? doc["mqtt_password"].as<const char*>() : "";
+    if (strlen(newMqttPass) > 0)
+        strlcpy(g_config.mqtt_password, newMqttPass, sizeof(g_config.mqtt_password));
+
+    // Location
+    if (doc["latitude"].is<float>())  g_config.latitude  = doc["latitude"].as<float>();
+    if (doc["longitude"].is<float>()) g_config.longitude = doc["longitude"].as<float>();
 
     NvsConfig::save();
 
     String resp = String("{\"ok\":true,\"reboot\":") + (needReboot ? "true" : "false") + "}";
     _server.send(200, "application/json", resp);
-
-    if (needReboot) {
-        delay(300);
-        ESP.restart();
-    }
+    if (needReboot) { delay(300); ESP.restart(); }
 }
 
 static void handleGetReadings() {
@@ -346,10 +428,39 @@ static void handleGetReadings() {
     _server.send(200, "application/json", out);
 }
 
+static void handleGetWeather() {
+    JsonDocument doc;
+    doc["valid"]        = g_weather.valid;
+    doc["temp_f"]       = serialized(String(g_weather.temp_f, 2));
+    doc["humidity"]     = serialized(String(g_weather.humidity, 1));
+    doc["weather_code"] = g_weather.weather_code;
+    doc["uv_index"]     = serialized(String(g_weather.uv_index, 1));
+    doc["fetched_ms"]   = g_weather.fetched_ms;
+    doc["lat_set"]      = (g_config.latitude != 0.0f || g_config.longitude != 0.0f);
+    String out;
+    serializeJson(doc, out);
+    _server.send(200, "application/json", out);
+}
+
+static void handleWeatherFetch() {
+    if (g_config.latitude == 0.0f && g_config.longitude == 0.0f) {
+        _server.send(400, "application/json", "{\"ok\":false,\"msg\":\"No location set\"}");
+        return;
+    }
+    _server.send(200, "application/json", "{\"ok\":true}");
+    Weather::fetchNow();
+}
+
 static void handleReboot() {
     _server.send(200, "application/json", "{\"ok\":true}");
     delay(200);
     ESP.restart();
+}
+
+static void handleReset() {
+    _server.send(200, "application/json", "{\"ok\":true}");
+    delay(200);
+    NvsConfig::factoryReset();
 }
 
 static void handleI2cScan() {
@@ -369,12 +480,15 @@ static void handleI2cScan() {
 
 void WebUI::begin() {
     if (_started) return;
-    _server.on("/",            HTTP_GET,  handleRoot);
-    _server.on("/api/config",  HTTP_GET,  handleGetConfig);
-    _server.on("/api/config",  HTTP_POST, handlePostConfig);
-    _server.on("/api/readings",HTTP_GET,  handleGetReadings);
-    _server.on("/api/reboot",  HTTP_POST, handleReboot);
-    _server.on("/api/i2cscan", HTTP_GET,  handleI2cScan);
+    _server.on("/",                  HTTP_GET,  handleRoot);
+    _server.on("/api/config",        HTTP_GET,  handleGetConfig);
+    _server.on("/api/config",        HTTP_POST, handlePostConfig);
+    _server.on("/api/readings",      HTTP_GET,  handleGetReadings);
+    _server.on("/api/weather",       HTTP_GET,  handleGetWeather);
+    _server.on("/api/weather/fetch", HTTP_POST, handleWeatherFetch);
+    _server.on("/api/reboot",        HTTP_POST, handleReboot);
+    _server.on("/api/reset",         HTTP_POST, handleReset);
+    _server.on("/api/i2cscan",       HTTP_GET,  handleI2cScan);
     _server.begin();
     _started = true;
     Serial.printf("[WebUI] Started — http://%s/\n", WiFi.localIP().toString().c_str());
