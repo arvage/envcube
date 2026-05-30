@@ -374,12 +374,12 @@ void MqttClient::_publishDiscovery() {
     _topic(stateTopic, sizeof(stateTopic), "smoke");
     _publishSensor("smoke", "Smoke", "",
                    "smoke", stateTopic,
-                   "{{value_json.value}}", true);
+                   "{{ 'on' if value_json.value else 'off' }}", true);
 
     _topic(stateTopic, sizeof(stateTopic), "presence");
     _publishSensor("presence", "Presence", "",
                    "occupancy", stateTopic,
-                   "{{value_json.value}}", true);
+                   "{{ 'on' if value_json.value else 'off' }}", true);
 
     // ── Alert level sensor ───────────────────────────────────
     _topic(stateTopic, sizeof(stateTopic), "alert");
