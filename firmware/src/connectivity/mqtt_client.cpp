@@ -465,8 +465,10 @@ void MqttClient::_publishSensor(const char* sensor_id,
     doc["availability_topic"]    = availTopic;
     doc["availability_template"] = "{{ 'online' if value_json.online else 'offline' }}";
 
-    char buf[512];
+    char buf[768];
     size_t len = serializeJson(doc, buf, sizeof(buf));
+    if (len >= sizeof(buf) - 1)
+        Logger::write('W', "MQTT", "Discovery payload truncated for %s (%u bytes)", sensor_id, (unsigned)len);
 
     _mqtt.publish(discTopic, (const uint8_t*)buf, len, true);
 }

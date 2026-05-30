@@ -285,8 +285,8 @@ void OledDisplay::showOtaProgress(uint8_t percent) {
     _display.clearDisplay();
 
     _display.setTextSize(1);
-    _display.setCursor(20, 8);
-    _display.print("OTA Updating...");
+    _display.setCursor(16, 8);
+    _display.print("Updating firmware");
 
     // Progress bar
     _display.drawRect(4, 28, 120, 12, SSD1306_WHITE);
