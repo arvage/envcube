@@ -20,6 +20,7 @@
 #include "../config.h"
 #include "../storage/nvs_config.h"
 #include "../alerts/alert_engine.h"
+#include "../web/logger.h"
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
@@ -42,10 +43,11 @@ void MqttClient::begin() {
     _mqtt.setServer(g_config.mqtt_host, g_config.mqtt_port);
     _mqtt.setCallback(_onMessage);
     _mqtt.setKeepAlive(MQTT_KEEPALIVE);
-    _mqtt.setBufferSize(1024);  // Larger buffer for discovery payloads
+    _mqtt.setBufferSize(2048);
 
-    Serial.printf("[MQTT] Configured — broker: %s:%u\n",
-                  g_config.mqtt_host, g_config.mqtt_port);
+    Logger::write('I', "MQTT", "Configured — broker: %s:%u user: %s",
+                  g_config.mqtt_host, g_config.mqtt_port,
+                  strlen(g_config.mqtt_user) > 0 ? g_config.mqtt_user : "(none)");
     _connect();
 }
 
@@ -74,24 +76,22 @@ void MqttClient::publishReadings(const SensorReadings& r) {
     char topic[80];
     char payload[128];
 
-    // Temperature
     if (r.thermal_ok) {
         _topic(topic, sizeof(topic), "temperature");
         snprintf(payload, sizeof(payload),
-                 "{\"value\":%.2f,\"unit\":\"C\",\"ok\":true}",
-                 r.temperature_c);
-        _mqtt.publish(topic, payload, true);  // retained
+                 "{\"value\":%.2f,\"unit\":\"C\",\"ok\":true}", r.temperature_c);
+        _mqtt.publish(topic, payload, true);
 
         _topic(topic, sizeof(topic), "humidity");
         snprintf(payload, sizeof(payload),
-                 "{\"value\":%.1f,\"unit\":\"%%\",\"ok\":true}",
-                 r.humidity_rh);
+                 "{\"value\":%.1f,\"unit\":\"%%\",\"ok\":true}", r.humidity_rh);
         _mqtt.publish(topic, payload, true);
+    }
 
+    if (r.pressure_ok) {
         _topic(topic, sizeof(topic), "pressure");
         snprintf(payload, sizeof(payload),
-                 "{\"value\":%.1f,\"unit\":\"hPa\",\"ok\":true}",
-                 r.pressure_hpa);
+                 "{\"value\":%.1f,\"unit\":\"hPa\",\"ok\":true}", r.pressure_hpa);
         _mqtt.publish(topic, payload, true);
     }
 
@@ -254,27 +254,25 @@ void MqttClient::_connect() {
 
     if (ok) {
         _connected          = true;
-        _discoveryPublished = false;  // re-publish on reconnect
-        Serial.println("[MQTT] Connected");
+        _discoveryPublished = false;
+        Logger::write('I', "MQTT", "Connected to %s", g_config.mqtt_host);
 
-        // Subscribe to command topic
         char cmdTopic[80];
         _topic(cmdTopic, sizeof(cmdTopic), "cmd/#");
         _mqtt.subscribe(cmdTopic);
 
-        // Publish online status immediately
         publishStatus(true, WiFi.RSSI(),
                       WiFi.localIP().toString().c_str(),
                       millis() / 1000);
 
-        // Publish HA auto-discovery
-        if (!_discoveryPublished) {
-            _publishDiscovery();
-            _discoveryPublished = true;
-        }
+        _publishDiscovery();
+        _discoveryPublished = true;
     } else {
-        Serial.printf("[MQTT] Connect failed — state: %d\n",
-                      _mqtt.state());
+        // PubSubClient state codes: -4=timeout -3=lost -2=failed
+        // 1=bad protocol 2=bad client_id 3=unavailable 4=bad credentials 5=unauthorized
+        Logger::write('E', "MQTT", "Connect failed — state: %d (broker: %s user: %s)",
+                      _mqtt.state(), g_config.mqtt_host,
+                      strlen(g_config.mqtt_user) > 0 ? g_config.mqtt_user : "none");
     }
 }
 
@@ -301,7 +299,7 @@ void MqttClient::_onMessage(char* topic, byte* payload,
 
 // ── _publishDiscovery ────────────────────────────────────────
 void MqttClient::_publishDiscovery() {
-    Serial.println("[MQTT] Publishing HA auto-discovery...");
+    Logger::write('I', "MQTT", "Publishing HA auto-discovery...");
 
     char slug[32];
     _roomSlug(slug, sizeof(slug));
@@ -366,7 +364,7 @@ void MqttClient::_publishDiscovery() {
     _publishSensor("alert_level", "Alert Level", "",
                    nullptr, stateTopic, "{{value_json.level}}");
 
-    Serial.println("[MQTT] HA auto-discovery complete");
+    Logger::write('I', "MQTT", "HA auto-discovery complete");
 }
 
 // ── _publishSensor ───────────────────────────────────────────
@@ -411,19 +409,22 @@ void MqttClient::_publishSensor(const char* sensor_id,
     doc["payload_available"]   = "online";
     doc["payload_not_available"] = "offline";
 
-    // Device block — groups all entities under one device in HA
+    // Device block — shared across all entities so HA groups them under one device
+    char deviceId[48];
+    snprintf(deviceId, sizeof(deviceId), "envcube_%s_%u", slug, g_config.cube_id);
+
     JsonObject device = doc["device"].to<JsonObject>();
-    device["identifiers"][0]  = uid;
+    device["identifiers"][0]  = deviceId;
     device["name"]            = g_config.room_name;
     device["model"]           = "EnvCube";
     device["manufacturer"]    = "EnvCube";
     device["sw_version"]      = ENVCUBE_VERSION;
 
-    // Availability topic (LWT)
+    // Availability via LWT status topic
     char availTopic[80];
     _topic(availTopic, sizeof(availTopic), "status");
-    doc["availability_topic"]  = availTopic;
-    doc["availability_template"] = "{{value_json.online | iif('online','offline')}}";
+    doc["availability_topic"]    = availTopic;
+    doc["availability_template"] = "{{ 'online' if value_json.online else 'offline' }}";
 
     char buf[512];
     size_t len = serializeJson(doc, buf, sizeof(buf));
