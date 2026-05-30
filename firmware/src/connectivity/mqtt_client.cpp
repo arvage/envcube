@@ -298,7 +298,35 @@ void MqttClient::_onMessage(char* topic, byte* payload,
 }
 
 // ── _publishDiscovery ────────────────────────────────────────
+void MqttClient::_clearDiscovery() {
+    // Delete old retained discovery entries so HA re-creates entities with
+    // correct device grouping. Empty payload = HA removes the entity.
+    char slug[32];
+    _roomSlug(slug, sizeof(slug));
+
+    const char* ids[] = {
+        "temperature","humidity","pressure","co2","voc_index","nox_index",
+        "pm25","pm10","noise_db","lux","alert_level"
+    };
+    const char* binIds[] = { "smoke","presence" };
+
+    char topic[128];
+    for (auto id : ids) {
+        snprintf(topic, sizeof(topic), "%s/sensor/envcube_%s_%s/config",
+                 MQTT_HA_DISCOVERY, slug, id);
+        _mqtt.publish(topic, "", true);   // empty = delete
+    }
+    for (auto id : binIds) {
+        snprintf(topic, sizeof(topic), "%s/binary_sensor/envcube_%s_%s/config",
+                 MQTT_HA_DISCOVERY, slug, id);
+        _mqtt.publish(topic, "", true);
+    }
+    Logger::write('I', "MQTT", "Cleared old discovery entries");
+    delay(200);  // give broker time to process deletes before re-publishing
+}
+
 void MqttClient::_publishDiscovery() {
+    _clearDiscovery();
     Logger::write('I', "MQTT", "Publishing HA auto-discovery...");
 
     char slug[32];
@@ -414,7 +442,7 @@ void MqttClient::_publishSensor(const char* sensor_id,
     snprintf(deviceId, sizeof(deviceId), "envcube_%s_%u", slug, g_config.cube_id);
 
     JsonObject device = doc["device"].to<JsonObject>();
-    device["identifiers"][0]  = deviceId;
+    device["identifiers"].to<JsonArray>().add(deviceId);
     device["name"]            = g_config.room_name;
     device["model"]           = "EnvCube";
     device["manufacturer"]    = "EnvCube";

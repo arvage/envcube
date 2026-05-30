@@ -58,6 +58,7 @@ public:
 
 private:
     static void _connect();
+    static void _clearDiscovery();
     static void _publishDiscovery();
     static void _publishSensor(const char* sensor_id,
                                const char* name,
