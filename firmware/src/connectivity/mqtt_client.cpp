@@ -387,7 +387,7 @@ void MqttClient::_publishDiscovery() {
 
     _topic(stateTopic, sizeof(stateTopic), "presence_cm");
     _publishSensor("presence_cm", "Presence Distance", "cm",
-                   "distance", stateTopic, "{{value_json.value}}",
+                   nullptr, stateTopic, "{{value_json.value}}",
                    false, "measurement");
 
     // ── Alert level sensor ───────────────────────────────────
