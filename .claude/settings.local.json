@@ -30,7 +30,8 @@
       "Bash(cp /Users/arvage/Downloads/envcube/firmware/.pio/build/esp32c6/firmware.factory.bin /Users/arvage/Downloads/envcube/firmware/.pio/build/esp32c6/firmware.bin /Users/arvage/Downloads/envcube/firmware/.pio/build/esp32c6/bootloader.bin /Users/arvage/Downloads/envcube/firmware/.pio/build/esp32c6/partitions.bin envcube-v0.3.0/)",
       "Bash(zip -j envcube-v0.3.0-firmware-bundle.zip envcube-v0.3.0/*)",
       "Bash(curl -s http://172.16.172.159/api/readings)",
-      "Bash(curl -s http://172.16.172.159/api/i2cscan)"
+      "Bash(curl -s http://172.16.172.159/api/i2cscan)",
+      "Bash(curl -s http://172.16.172.159/api/config)"
     ]
   }
 }

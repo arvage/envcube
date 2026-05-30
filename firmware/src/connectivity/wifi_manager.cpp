@@ -106,7 +106,7 @@ void WifiManager::_connectWithCredentials() {
                   WiFi.localIP().toString().c_str(), WiFi.RSSI());
     _state = WifiState::CONNECTED;
 
-    // Start mDNS — cube reachable as envcube.local
+    // mDNS: room-based hostname for human-friendly web access
     String hostname = String(MDNS_HOSTNAME) + "-" + String(g_config.room_name);
     hostname.toLowerCase();
     hostname.replace(" ", "-");
@@ -114,10 +114,12 @@ void WifiManager::_connectWithCredentials() {
         Serial.printf("[mDNS] Hostname: %s.local\n", hostname.c_str());
     }
 
-    // Start ArduinoOTA
+    // OTA: cube_id-based hostname — stable regardless of room renames or DHCP
+    String otaHostname = String(MDNS_HOSTNAME) + "-" + String(g_config.cube_id);
     ArduinoOTA.setPort(OTA_PORT);
     ArduinoOTA.setPassword(OTA_PASSWORD);
-    ArduinoOTA.setHostname(hostname.c_str());
+    ArduinoOTA.setHostname(otaHostname.c_str());
+    Serial.printf("[OTA] Hostname: %s.local\n", otaHostname.c_str());
 
     ArduinoOTA.onStart([]() {
         Serial.println("[OTA] Starting firmware update...");
