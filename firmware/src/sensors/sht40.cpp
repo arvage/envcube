@@ -20,8 +20,6 @@ bool Sht40::_ready = false;
 
 // ── Sht40::begin ─────────────────────────────────────────────
 bool Sht40::begin() {
-    Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
-
     if (!_sht.begin()) {
         Serial.println("[SHT40] ERROR: sensor not found on I²C bus (0x44)");
         Serial.println("[SHT40] Check wiring: SDA→GPIO6, SCL→GPIO7, 4.7kΩ pull-ups");

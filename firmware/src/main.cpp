@@ -19,6 +19,7 @@
 #include "outputs/outputs_task.h"
 #include "display/oled.h"
 #include "web/web_ui.h"
+#include <Wire.h>
 // Sensor drivers
 #include "sensors/sht40.h"
 #include "sensors/bmp280.h"
@@ -50,6 +51,9 @@ void setup() {
     Serial.println("+=========================+");
 
     pinMode(PIN_BUTTON, INPUT_PULLUP);
+
+    // ── I²C — initialise once before any driver touches it ────
+    Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
 
     // ── Outputs first — give user immediate visual feedback ───
     Led::begin();

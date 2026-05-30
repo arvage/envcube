@@ -46,11 +46,14 @@ struct SensorReadings {
     bool     smoke_ok        = false;
     bool     co2_ok          = false;
 
-    // Air quality pod
+    // Air quality pod (SGP41)
     int16_t  voc_index       = 0;
     int16_t  nox_index       = 0;
-    uint32_t lux             = 0;
     bool     aq_ok           = false;
+
+    // Light pod (VEML7700)
+    uint32_t lux             = 0;
+    bool     lux_ok          = false;
 
     // Particulate pod
     uint16_t pm1_0           = 0;

@@ -48,7 +48,8 @@ bool Veml7700Driver::read(SensorReadings& r) {
         return false;
     }
 
-    r.lux = (uint32_t)lux;
+    r.lux     = (uint32_t)lux;
+    r.lux_ok  = true;
 
     Serial.printf("[VEML7700] Lux=%.1f (%s)\n",
                   lux,

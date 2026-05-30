@@ -12,6 +12,7 @@
 #include "web_ui.h"
 #include <WebServer.h>
 #include <WiFi.h>
+#include <Wire.h>
 #include <ArduinoJson.h>
 #include "../storage/nvs_config.h"
 #include "../alerts/alert_engine.h"
@@ -186,7 +187,7 @@ function loadReadings(){
     set('r-pm25', d.pm_ok?d.pm2_5+' μg/m³':'—','s-pm25',d.pm_ok);
     set('r-pm10', d.pm_ok?d.pm10+' μg/m³':'—','s-pm10',d.pm_ok);
     set('r-noise',d.noise_ok?d.noise_db.toFixed(1)+' dBA':'—','s-noise',d.noise_ok);
-    set('r-lux',  d.aq_ok?d.lux+' lx':'—','s-lux',d.aq_ok);
+    set('r-lux',  d.lux_ok?d.lux+' lx':'—','s-lux',d.lux_ok);
     set('r-smoke',d.smoke_ok?String(d.smoke_raw):'—','s-smoke',d.smoke_ok);
     var presVal=d.presence_ok?(d.presence?'Yes ('+d.presence_cm+' cm)':'No'):'—';
     set('r-presence',presVal,'s-presence',d.presence_ok);
@@ -328,6 +329,7 @@ static void handleGetReadings() {
     doc["voc_index"]     = g_readings.voc_index;
     doc["nox_index"]     = g_readings.nox_index;
     doc["lux"]           = g_readings.lux;
+    doc["lux_ok"]        = g_readings.lux_ok;
     doc["aq_ok"]         = g_readings.aq_ok;
     doc["pm1_0"]         = g_readings.pm1_0;
     doc["pm2_5"]         = g_readings.pm2_5;
@@ -350,6 +352,19 @@ static void handleReboot() {
     ESP.restart();
 }
 
+static void handleI2cScan() {
+    JsonDocument doc;
+    JsonArray arr = doc["devices"].to<JsonArray>();
+    for (uint8_t addr = 1; addr < 127; addr++) {
+        Wire.beginTransmission(addr);
+        if (Wire.endTransmission() == 0) arr.add(addr);
+    }
+    doc["count"] = arr.size();
+    String out;
+    serializeJson(doc, out);
+    _server.send(200, "application/json", out);
+}
+
 // ── Public API ────────────────────────────────────────────────
 
 void WebUI::begin() {
@@ -359,6 +374,7 @@ void WebUI::begin() {
     _server.on("/api/config",  HTTP_POST, handlePostConfig);
     _server.on("/api/readings",HTTP_GET,  handleGetReadings);
     _server.on("/api/reboot",  HTTP_POST, handleReboot);
+    _server.on("/api/i2cscan", HTTP_GET,  handleI2cScan);
     _server.begin();
     _started = true;
     Serial.printf("[WebUI] Started — http://%s/\n", WiFi.localIP().toString().c_str());

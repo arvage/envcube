@@ -36,8 +36,6 @@ bool     OledDisplay::_ready         = false;
 
 // ── OledDisplay::begin ───────────────────────────────────────
 void OledDisplay::begin() {
-    Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
-
     if (!_display.begin(SSD1306_SWITCHCAPVCC, I2C_ADDR_OLED)) {
         Serial.println("[OLED] ERROR: display not found (0x3C)");
         _ready = false;
