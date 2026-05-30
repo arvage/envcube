@@ -5,6 +5,7 @@
 #include "wifi_manager.h"
 #include "../storage/nvs_config.h"
 #include "../web/logger.h"
+#include "esp_ota_ops.h"
 #include "../config.h"
 #include <WiFi.h>
 #include <WiFiManager.h>    // tzapu/WiFiManager
@@ -161,7 +162,7 @@ void WifiManager::_connectWithCredentials() {
         Serial.println("[OTA] Starting firmware update...");
         Buzzer::stop();
         Led::flash(LED_COLOR_WHITE, 0);
-        OledDisplay::showOtaProgress(0);  // clear + draw blank progress bar immediately
+        OledDisplay::showOtaProgress(0, nullptr);
     });
     ArduinoOTA.onEnd([]() {
         Serial.println("\n[OTA] Done — rebooting");
@@ -171,9 +172,24 @@ void WifiManager::_connectWithCredentials() {
         Serial.printf("[OTA] Error[%u]\n", error);
     });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+        static char newVer[32] = "";
+
+        // After enough data is written, read version from incoming binary
+        if (progress >= 512 && newVer[0] == '\0') {
+            const esp_partition_t* ota = esp_ota_get_next_update_partition(NULL);
+            if (ota) {
+                esp_app_desc_t desc;
+                if (esp_ota_get_partition_description(ota, &desc) == ESP_OK &&
+                    desc.magic_word == 0xABCD5AA5U) {
+                    strncpy(newVer, desc.version, sizeof(newVer) - 1);
+                    newVer[sizeof(newVer) - 1] = '\0';
+                }
+            }
+        }
+
         uint8_t pct = (uint8_t)(progress * 100 / total);
         Serial.printf("[OTA] %u%%\r", pct);
-        OledDisplay::showOtaProgress(pct);
+        OledDisplay::showOtaProgress(pct, newVer[0] ? newVer : nullptr);
     });
     ArduinoOTA.begin();
     Serial.println("[OTA] Ready");

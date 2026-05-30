@@ -281,7 +281,7 @@ void OledDisplay::showProvisioning(const char* ssid) {
 }
 
 // ── showOtaProgress ──────────────────────────────────────────
-void OledDisplay::showOtaProgress(uint8_t percent) {
+void OledDisplay::showOtaProgress(uint8_t percent, const char* newVersion) {
     if (!_ready) return;
     _otaActive = true;
     _display.clearDisplay();
@@ -289,8 +289,14 @@ void OledDisplay::showOtaProgress(uint8_t percent) {
     _display.setTextSize(1);
     _display.setCursor(16, 4);
     _display.print("Updating firmware");
-    _display.setCursor(40, 16);
-    _display.print("v" ENVCUBE_VERSION);
+
+    // Show target version once known, otherwise show current with arrow
+    _display.setCursor(22, 16);
+    if (newVersion && newVersion[0]) {
+        _display.printf("v%s  ->  v%s", ENVCUBE_VERSION, newVersion);
+    } else {
+        _display.printf("v%s  ->  ...", ENVCUBE_VERSION);
+    }
 
     // Progress bar
     _display.drawRect(4, 30, 120, 12, SSD1306_WHITE);

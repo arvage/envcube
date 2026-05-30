@@ -41,7 +41,7 @@ public:
     // Special screens
     static void showBoot(const char* version);
     static void showProvisioning(const char* ssid);
-    static void showOtaProgress(uint8_t percent);
+    static void showOtaProgress(uint8_t percent, const char* newVersion = nullptr);
 
     // Cycle to next screen (called on button tap)
     static void nextScreen();
