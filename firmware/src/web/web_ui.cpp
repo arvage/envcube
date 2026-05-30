@@ -21,6 +21,7 @@
 #include "../alerts/alert_engine.h"
 #include "../display/oled.h"
 #include "../connectivity/weather.h"
+#include "logger.h"
 
 static WebServer _server(80);
 static bool      _started = false;
@@ -94,6 +95,7 @@ td.sta{width:18%;text-align:right}
   <button onclick="show('wifi',this)">WiFi</button>
   <button onclick="show('mqtt',this)">MQTT</button>
   <button onclick="show('weather',this)">Weather</button>
+  <button onclick="show('log',this)">Log</button>
 </nav>
 
 <!-- Console -->
@@ -172,6 +174,20 @@ td.sta{width:18%;text-align:right}
   <div class="actions"><button class="btn btn-primary" onclick="save()">Save</button><span class="toast" id="toast-m"></span></div>
 </div>
 
+<!-- Log -->
+<div id="tab-log" class="tab">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+    <div class="divider" style="margin:0;border:none">Device log</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <label style="display:flex;align-items:center;gap:6px;font-size:.78rem;color:#888;text-transform:none;cursor:pointer">
+        <input type="checkbox" id="log-scroll" checked style="accent-color:#7eb8f7"> Auto-scroll
+      </label>
+      <button class="btn btn-ghost" style="padding:4px 10px;font-size:.78rem" onclick="clearLog()">Clear</button>
+    </div>
+  </div>
+  <pre id="log-pre" style="background:#0a0c12;border:1px solid #2a2d3a;border-radius:6px;padding:12px;font-size:.75rem;line-height:1.5;height:380px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;color:#c0c0c0;margin:0"></pre>
+</div>
+
 <!-- Weather -->
 <div id="tab-weather" class="tab">
   <div class="divider">Location</div>
@@ -207,6 +223,7 @@ function show(t,btn){
   btn.classList.add('active');
   _tab=t;
   if(t==='weather')loadWeather();
+  if(t==='log')loadLog();
 }
 function badge(ok){return ok?'<span class="badge badge-ok">OK</span>':'<span class="badge badge-err">ERR</span>';}
 function set(vid,val,sid,ok){document.getElementById(vid).textContent=val;document.getElementById(sid).innerHTML=badge(ok);}
@@ -314,8 +331,35 @@ function doReset(){
   if(!confirm('This cannot be undone. Continue?'))return;
   fetch('/api/reset',{method:'POST'}).finally(function(){showToast('toast-d',true,'Resetting…');});
 }
+var _logSeq=-1,_logLines=[];
+function levelColor(l){return l==='E'?'#e05c5c':l==='W'?'#e6a817':l==='I'?'#7eb8f7':'#888';}
+function parseLine(l){
+  // Match IDF log format: [tag][level][...] message
+  var m=l.match(/^\((\w)\) (.*)$/);
+  if(m) return '<span style="color:'+levelColor(m[1])+'">'+escHtml(m[0])+'</span>';
+  // Match [E][tag:line] format
+  var m2=l.match(/^\[(\w)\]\[/);
+  if(m2) return '<span style="color:'+levelColor(m2[1])+'">'+escHtml(l)+'</span>';
+  return escHtml(l);
+}
+function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function loadLog(){
+  fetch('/api/log').then(function(r){return r.json();}).then(function(d){
+    if(d.seq===_logSeq) return;
+    _logSeq=d.seq;
+    _logLines=d.lines||[];
+    renderLog();
+  }).catch(function(){});
+}
+function renderLog(){
+  var pre=document.getElementById('log-pre');
+  pre.innerHTML=_logLines.map(parseLine).join('\n');
+  if(document.getElementById('log-scroll').checked) pre.scrollTop=pre.scrollHeight;
+}
+function clearLog(){_logLines=[];document.getElementById('log-pre').innerHTML='';}
 loadConfig();loadReadings();
 setInterval(loadReadings,3000);
+setInterval(function(){if(_tab==='log')loadLog();},2000);
 </script>
 </body>
 </html>
@@ -464,6 +508,12 @@ static void handleReset() {
     NvsConfig::factoryReset();
 }
 
+static void handleGetLog() {
+    static char logBuf[8192];
+    Logger::getJson(logBuf, sizeof(logBuf));
+    _server.send(200, "application/json", logBuf);
+}
+
 static void handleI2cScan() {
     JsonDocument doc;
     JsonArray arr = doc["devices"].to<JsonArray>();
@@ -489,6 +539,7 @@ void WebUI::begin() {
     _server.on("/api/weather/fetch", HTTP_POST, handleWeatherFetch);
     _server.on("/api/reboot",        HTTP_POST, handleReboot);
     _server.on("/api/reset",         HTTP_POST, handleReset);
+    _server.on("/api/log",           HTTP_GET,  handleGetLog);
     _server.on("/api/i2cscan",       HTTP_GET,  handleI2cScan);
     _server.begin();
     _started = true;

@@ -18,7 +18,7 @@
 #define I2C_ADDR_SHT40        0x44
 #define I2C_ADDR_SCD41        0x62
 #define I2C_ADDR_SGP41        0x59
-#define I2C_ADDR_BMP280       0x77
+#define I2C_ADDR_BMP280       0x76
 #define I2C_ADDR_VEML7700     0x10
 #define I2C_ADDR_PMSA003I     0x12
 #define I2C_ADDR_OLED         0x3C

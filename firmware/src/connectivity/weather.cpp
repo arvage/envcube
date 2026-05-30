@@ -29,6 +29,7 @@
 #include "weather.h"
 #include "../config.h"
 #include "../storage/nvs_config.h"
+#include "../web/logger.h"
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
@@ -127,6 +128,9 @@ bool Weather::_fetch() {
     _valid                 = true;
     snprintf(_lastError, sizeof(_lastError), "ok: %.1fF %.0f%%RH",
              g_weather.temp_f, g_weather.humidity);
+    Logger::write('I', "Weather", "%.1f°F  %.0f%%RH  UV:%.1f  code:%u",
+                g_weather.temp_f, g_weather.humidity,
+                g_weather.uv_index, g_weather.weather_code);
 
 #ifdef ENVCUBE_ENABLE_MQTT
     MqttClient::publishWeather(g_weather);

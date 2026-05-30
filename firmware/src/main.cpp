@@ -19,6 +19,7 @@
 #include "outputs/outputs_task.h"
 #include "display/oled.h"
 #include "web/web_ui.h"
+#include "web/logger.h"
 #include <Wire.h>
 // Sensor drivers
 #include "sensors/sht40.h"
@@ -44,6 +45,7 @@ static bool          _btnWasPressed = false;
 void setup() {
     Serial.begin(115200);
     delay(500);
+    Logger::begin();   // hook ESP_LOG* into ring buffer before anything else
 
     Serial.println("\n+=========================+");
     Serial.println("|  EnvCube v" ENVCUBE_VERSION "           |");
@@ -109,6 +111,8 @@ void setup() {
                             16384, nullptr, 1, nullptr, 0);
 
     Serial.println("[Boot] EnvCube running");
+    Logger::write('I', "Boot", "EnvCube v" ENVCUBE_VERSION " running — room: %s  IP: %s",
+                g_config.room_name, WifiManager::ipAddress().c_str());
     Led::setAlert(AlertLevel::ALL_CLEAR);
 }
 
@@ -122,16 +126,18 @@ void loop() {
 
 // ── taskSensors ───────────────────────────────────────────────
 void taskSensors(void* param) {
-#define CRUMB(s) do { Serial.println(s); Serial.flush(); } while(0)
-    CRUMB("[Sensors] init: SHT40");   Sht40::begin();
-    CRUMB("[Sensors] init: BMP280");  Bmp280Driver::begin();
-    CRUMB("[Sensors] init: SCD41");   Scd41::begin();
-    CRUMB("[Sensors] init: SGP41");   Sgp41::begin();
-    CRUMB("[Sensors] init: VEML7700");Veml7700Driver::begin();
-    CRUMB("[Sensors] init: MQ2");     Mq2::begin();
-    CRUMB("[Sensors] init: PMSA003I");Pmsa003i::begin();
-    CRUMB("[Sensors] init: LD2410C"); Ld2410c::begin();
-    CRUMB("[Sensors] init: ICS43434");Ics43434::begin();
+    auto logBegin = [](const char* name, bool ok) {
+        Logger::write(ok ? 'I' : 'W', "Sensor", "%s %s", name, ok ? "OK" : "not found");
+    };
+    logBegin("SHT40",    Sht40::begin());
+    logBegin("BMP280",   Bmp280Driver::begin());
+    logBegin("SCD41",    Scd41::begin());
+    logBegin("SGP41",    Sgp41::begin());
+    logBegin("VEML7700", Veml7700Driver::begin());
+    logBegin("MQ2",      Mq2::begin());
+    logBegin("PMSA003I", Pmsa003i::begin());
+    logBegin("LD2410C",  Ld2410c::begin());
+    logBegin("ICS43434", Ics43434::begin());
 
     Serial.println("[Sensors] All initialised — polling started");
     unsigned long lastSlowPoll = 0;
@@ -144,8 +150,8 @@ void taskSensors(void* param) {
         Mq2::read(g_readings);
         Ld2410c::read(g_readings);
         Pmsa003i::read(g_readings);
-        Serial.println("[Sensors] poll: ICS43434"); Ics43434::read(g_readings);
-        Serial.println("[Sensors] poll: VEML7700"); Veml7700Driver::read(g_readings);
+        Ics43434::read(g_readings);
+        Veml7700Driver::read(g_readings);
 
         if (now - lastSlowPoll >= POLL_SLOW_MS) {
             Scd41::read(g_readings);

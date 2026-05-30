@@ -4,6 +4,7 @@
 
 #include "wifi_manager.h"
 #include "../storage/nvs_config.h"
+#include "../web/logger.h"
 #include "../config.h"
 #include <WiFi.h>
 #include <WiFiManager.h>    // tzapu/WiFiManager
@@ -120,6 +121,8 @@ void WifiManager::_connectWithCredentials() {
 
     Serial.printf("\n[WiFi] Connected — IP: %s  RSSI: %d dBm\n",
                   WiFi.localIP().toString().c_str(), WiFi.RSSI());
+    Logger::write('I', "WiFi", "Connected — IP: %s  RSSI: %d dBm",
+                WiFi.localIP().toString().c_str(), WiFi.RSSI());
     _state = WifiState::CONNECTED;
 
     // mDNS: room-based hostname for human-friendly web access
