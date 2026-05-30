@@ -18,6 +18,7 @@
 #include "outputs/dfplayer.h"
 #include "outputs/outputs_task.h"
 #include "display/oled.h"
+#include "web/web_ui.h"
 // Sensor drivers
 #include "sensors/sht40.h"
 #include "sensors/bmp280.h"
@@ -80,6 +81,7 @@ void setup() {
         Led::setColor(LED_COLOR_GREEN);
         if (g_config.voice_enabled) DFPlayer::play(AUDIO_WIFI_CONNECTED);
         Buzzer::confirm();
+        WebUI::begin();
     } else {
         Led::setColor(LED_COLOR_AMBER);
     }
@@ -109,6 +111,7 @@ void setup() {
 // ── loop ──────────────────────────────────────────────────────
 void loop() {
     WifiManager::loop();
+    WebUI::loop();
     handleButton();
     delay(50);
 }
