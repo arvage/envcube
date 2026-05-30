@@ -143,7 +143,8 @@ void WifiManager::_connectWithCredentials() {
     ArduinoOTA.onStart([]() {
         Serial.println("[OTA] Starting firmware update...");
         Buzzer::stop();
-        Led::flash(LED_COLOR_WHITE, 0);  // infinite white flash
+        Led::flash(LED_COLOR_WHITE, 0);
+        OledDisplay::showOtaProgress(0);  // clear + draw blank progress bar immediately
     });
     ArduinoOTA.onEnd([]() {
         Serial.println("\n[OTA] Done — rebooting");
