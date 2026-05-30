@@ -105,10 +105,8 @@ void MqttClient::publishReadings(const SensorReadings& r) {
 
     if (r.smoke_ok) {
         _topic(topic, sizeof(topic), "smoke");
-        _mqtt.publish(topic,
-            r.smoke_raw >= g_config.thresh_smoke_warn ? "on" : "off",
-            true);
-        published++;
+        snprintf(payload, sizeof(payload), "{\"value\":%u}", r.smoke_raw);
+        _mqtt.publish(topic, payload, true); published++;
     }
 
     if (r.aq_ok) {
@@ -152,6 +150,10 @@ void MqttClient::publishReadings(const SensorReadings& r) {
         _topic(topic, sizeof(topic), "presence");
         _mqtt.publish(topic, r.presence ? "on" : "off", true);
         published++;
+
+        _topic(topic, sizeof(topic), "presence_cm");
+        snprintf(payload, sizeof(payload), "{\"value\":%u}", r.presence_cm);
+        _mqtt.publish(topic, payload, true); published++;
     }
 
     Logger::write('I', "MQTT", "Published %u sensor(s)", published);
@@ -296,17 +298,24 @@ void MqttClient::_clearDiscovery() {
 
     const char* ids[] = {
         "temperature","humidity","pressure","co2","voc_index","nox_index",
-        "pm25","pm10","noise_db","lux","alert_level"
+        "pm25","pm10","noise_db","lux","alert_level","smoke","presence_cm"
     };
-    const char* binIds[] = { "smoke","presence" };
+    const char* binIds[] = { "presence" };
+    // Also clear old binary_sensor/smoke in case it was previously binary
+    const char* oldBinIds[] = { "smoke" };
 
     char topic[128];
     for (auto id : ids) {
         snprintf(topic, sizeof(topic), "%s/sensor/envcube_%s_%s/config",
                  MQTT_HA_DISCOVERY, slug, id);
-        _mqtt.publish(topic, "", true);   // empty = delete
+        _mqtt.publish(topic, "", true);
     }
     for (auto id : binIds) {
+        snprintf(topic, sizeof(topic), "%s/binary_sensor/envcube_%s_%s/config",
+                 MQTT_HA_DISCOVERY, slug, id);
+        _mqtt.publish(topic, "", true);
+    }
+    for (auto id : oldBinIds) {
         snprintf(topic, sizeof(topic), "%s/binary_sensor/envcube_%s_%s/config",
                  MQTT_HA_DISCOVERY, slug, id);
         _mqtt.publish(topic, "", true);
@@ -366,14 +375,20 @@ void MqttClient::_publishDiscovery() {
     _publishSensor("lux", "Illuminance", "lx",
                    "illuminance", stateTopic, "{{value_json.value}}");
 
-    // ── Binary sensors ───────────────────────────────────────
+    // ── Smoke (raw ADC — numeric sensor) ─────────────────────
     _topic(stateTopic, sizeof(stateTopic), "smoke");
-    _publishSensor("smoke", "Smoke", "",
-                   "smoke", stateTopic, nullptr, true);
+    _publishSensor("smoke", "Smoke Raw", "",
+                   nullptr, stateTopic, "{{value_json.value}}");
 
+    // ── Presence (binary) + distance (numeric) ───────────────
     _topic(stateTopic, sizeof(stateTopic), "presence");
     _publishSensor("presence", "Presence", "",
                    "occupancy", stateTopic, nullptr, true);
+
+    _topic(stateTopic, sizeof(stateTopic), "presence_cm");
+    _publishSensor("presence_cm", "Presence Distance", "cm",
+                   "distance", stateTopic, "{{value_json.value}}",
+                   false, "measurement");
 
     // ── Alert level sensor ───────────────────────────────────
     _topic(stateTopic, sizeof(stateTopic), "alert");
@@ -390,7 +405,8 @@ void MqttClient::_publishSensor(const char* sensor_id,
                                  const char* device_class,
                                  const char* state_topic,
                                  const char* value_template,
-                                 bool binary) {
+                                 bool binary,
+                                 const char* state_class) {
     char slug[32];
     _roomSlug(slug, sizeof(slug));
 
@@ -426,6 +442,8 @@ void MqttClient::_publishSensor(const char* sensor_id,
         doc["payload_on"]  = "on";
         doc["payload_off"] = "off";
     }
+    if (state_class != nullptr)
+        doc["state_class"] = state_class;
     doc["availability_topic"]    = "";  // set below
     doc["payload_available"]     = "online";
     doc["payload_not_available"] = "offline";

@@ -66,7 +66,8 @@ private:
                                const char* device_class,
                                const char* state_topic,
                                const char* value_template,
-                               bool binary = false);
+                               bool binary = false,
+                               const char* state_class = nullptr);
     static void _onMessage(char* topic, byte* payload, unsigned int length);
 
     // Build topic: envcube/<room>/<subtopic>
