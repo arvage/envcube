@@ -290,12 +290,12 @@ void OledDisplay::showOtaProgress(uint8_t percent, const char* newVersion) {
     _display.setCursor(16, 4);
     _display.print("Updating firmware");
 
-    // Show target version once known, otherwise show current with arrow
-    _display.setCursor(22, 16);
+    // Show only the target version (or placeholder)
+    _display.setCursor(34, 16);
     if (newVersion && newVersion[0]) {
-        _display.printf("v%s  ->  v%s", ENVCUBE_VERSION, newVersion);
+        _display.printf("-> v%s", newVersion);
     } else {
-        _display.printf("v%s  ->  ...", ENVCUBE_VERSION);
+        _display.print("-> ...");
     }
 
     // Progress bar
