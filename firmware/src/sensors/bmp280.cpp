@@ -55,7 +55,7 @@ bool Bmp280Driver::read(SensorReadings& r) {
     }
 
     r.pressure_hpa = pressure;
-    // thermal_ok is managed by SHT40 — BMP280 only sets pressure
+    r.pressure_ok  = true;
 
     Serial.printf("[BMP280] P=%.1f hPa\n", pressure);
     return true;

@@ -233,7 +233,7 @@ function loadReadings(){
   fetch('/api/readings').then(function(r){return r.json();}).then(function(d){
     set('r-temp',d.thermal_ok?d.temperature_c.toFixed(1)+' °C':'—','s-temp',d.thermal_ok);
     set('r-hum', d.thermal_ok?d.humidity_rh.toFixed(1)+' %':'—','s-hum',d.thermal_ok);
-    set('r-pres',d.thermal_ok?d.pressure_hpa.toFixed(1)+' hPa':'—','s-pres',d.thermal_ok);
+    set('r-pres',d.pressure_ok?d.pressure_hpa.toFixed(1)+' hPa':'—','s-pres',d.pressure_ok);
     set('r-co2', d.co2_ok?d.co2_ppm+' ppm':'—','s-co2',d.co2_ok);
     set('r-voc', d.aq_ok?String(d.voc_index):'—','s-voc',d.aq_ok);
     set('r-nox', d.aq_ok?String(d.nox_index):'—','s-nox',d.aq_ok);
@@ -448,6 +448,7 @@ static void handleGetReadings() {
     doc["humidity_rh"]   = serialized(String(g_readings.humidity_rh, 2));
     doc["pressure_hpa"]  = serialized(String(g_readings.pressure_hpa, 2));
     doc["thermal_ok"]    = g_readings.thermal_ok;
+    doc["pressure_ok"]   = g_readings.pressure_ok;
     doc["smoke_raw"]     = g_readings.smoke_raw;
     doc["smoke_ok"]      = g_readings.smoke_ok;
     doc["co2_ppm"]       = g_readings.co2_ppm;

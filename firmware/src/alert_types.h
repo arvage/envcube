@@ -38,7 +38,8 @@ struct SensorReadings {
     float    temperature_c   = 0.0f;
     float    humidity_rh     = 0.0f;
     float    pressure_hpa    = 0.0f;
-    bool     thermal_ok      = false;
+    bool     thermal_ok      = false;  // SHT40 (temp + humidity)
+    bool     pressure_ok     = false;  // BMP280
 
     // Smoke + CO₂ pod
     uint16_t smoke_raw       = 0;
