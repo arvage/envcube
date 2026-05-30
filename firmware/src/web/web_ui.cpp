@@ -155,6 +155,12 @@ td.sta{width:18%;text-align:right}
   <div class="divider">Failover network</div>
   <div class="field"><label>SSID</label><input type="text" id="wifi_ssid2" maxlength="63" placeholder="Optional — used if primary fails"></div>
   <div class="field"><label>Password</label><input type="password" id="wifi_password2" maxlength="63" placeholder="Leave blank to keep current"></div>
+  <div class="divider">AP fallback</div>
+  <div class="field">
+    <label>Switch to AP mode after (seconds, 0 = never)</label>
+    <input type="number" id="wifi_ap_timeout" min="0" max="3600" style="max-width:120px">
+    <p class="hint">If WiFi can't connect within this time, the device opens its own setup hotspot.</p>
+  </div>
   <p class="hint" style="margin-bottom:10px">Device reboots to apply new WiFi credentials.</p>
   <div class="actions"><button class="btn btn-primary" onclick="save()">Save &amp; Reboot</button><span class="toast" id="toast-w"></span></div>
 </div>
@@ -281,6 +287,7 @@ function loadConfig(){
     document.getElementById('ip_addr').value=d.ip_addr||'';
     document.getElementById('wifi_ssid').value=d.wifi_ssid||'';
     document.getElementById('wifi_ssid2').value=d.wifi_ssid2||'';
+    document.getElementById('wifi_ap_timeout').value=d.wifi_ap_timeout_secs||120;
     document.getElementById('mqtt_host').value=d.mqtt_host||'';
     document.getElementById('mqtt_port').value=d.mqtt_port||1883;
     document.getElementById('mqtt_enabled').checked=!!d.mqtt_enabled;
@@ -305,6 +312,7 @@ function save(){
     wifi_password:document.getElementById('wifi_password').value,
     wifi_ssid2:document.getElementById('wifi_ssid2').value,
     wifi_password2:document.getElementById('wifi_password2').value,
+    wifi_ap_timeout_secs:parseInt(document.getElementById('wifi_ap_timeout').value)||0,
     mqtt_host:document.getElementById('mqtt_host').value,
     mqtt_port:parseInt(document.getElementById('mqtt_port').value)||1883,
     mqtt_enabled:document.getElementById('mqtt_enabled').checked,
@@ -377,8 +385,9 @@ static void handleGetConfig() {
     doc["cube_id"]           = g_config.cube_id;
     doc["firmware_version"]  = ENVCUBE_VERSION;
     doc["ip_addr"]           = WiFi.localIP().toString();
-    doc["wifi_ssid"]         = g_config.wifi_ssid;
-    doc["wifi_ssid2"]        = g_config.wifi_ssid2;
+    doc["wifi_ssid"]             = g_config.wifi_ssid;
+    doc["wifi_ssid2"]            = g_config.wifi_ssid2;
+    doc["wifi_ap_timeout_secs"]  = g_config.wifi_ap_timeout_secs;
     doc["mqtt_host"]         = g_config.mqtt_host;
     doc["mqtt_port"]         = g_config.mqtt_port;
     doc["mqtt_enabled"]      = g_config.mqtt_enabled;
@@ -417,6 +426,8 @@ static void handlePostConfig() {
     const char* newPass2 = doc["wifi_password2"].is<const char*>() ? doc["wifi_password2"].as<const char*>() : "";
     if (strlen(newPass2) > 0)
         strlcpy(g_config.wifi_password2, newPass2, sizeof(g_config.wifi_password2));
+    if (doc["wifi_ap_timeout_secs"].is<int>())
+        g_config.wifi_ap_timeout_secs = (uint16_t)doc["wifi_ap_timeout_secs"].as<int>();
 
     // MQTT
     if (doc["mqtt_host"].is<const char*>())

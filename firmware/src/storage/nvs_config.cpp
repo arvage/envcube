@@ -12,7 +12,8 @@ static Preferences _prefs;
 // ── Helpers ──────────────────────────────────────────────────
 static void _applyDefaults() {
     strncpy(g_config.room_name,  "EnvCube",      NVS_MAX_ROOM_NAME - 1);
-    g_config.wifi_configured     = false;
+    g_config.wifi_configured      = false;
+    g_config.wifi_ap_timeout_secs = 120;
     g_config.mqtt_port           = MQTT_PORT;
     g_config.mqtt_enabled        = false;
     g_config.latitude            = 0.0f;
@@ -56,7 +57,8 @@ bool NvsConfig::load() {
         _prefs.getString("wifi_password",  g_config.wifi_password,  NVS_MAX_PASSWORD);
         _prefs.getString("wifi_ssid2",     g_config.wifi_ssid2,     NVS_MAX_SSID);
         _prefs.getString("wifi_password2", g_config.wifi_password2, NVS_MAX_PASSWORD);
-        g_config.wifi_configured = (strlen(g_config.wifi_ssid) > 0);
+        g_config.wifi_configured      = (strlen(g_config.wifi_ssid) > 0);
+        g_config.wifi_ap_timeout_secs = _prefs.getUShort("wifi_ap_to", 120);
 
         _prefs.getString("mqtt_host",      g_config.mqtt_host,     NVS_MAX_MQTT_HOST);
         g_config.mqtt_port    = _prefs.getUShort("mqtt_port",     MQTT_PORT);
@@ -106,6 +108,7 @@ bool NvsConfig::save() {
     _prefs.putString("wifi_password",  g_config.wifi_password);
     _prefs.putString("wifi_ssid2",     g_config.wifi_ssid2);
     _prefs.putString("wifi_password2", g_config.wifi_password2);
+    _prefs.putUShort("wifi_ap_to",     g_config.wifi_ap_timeout_secs);
     _prefs.putString("mqtt_host",      g_config.mqtt_host);
     _prefs.putUShort("mqtt_port",      g_config.mqtt_port);
     _prefs.putBool("mqtt_enabled",     g_config.mqtt_enabled);

@@ -31,6 +31,7 @@ struct EnvCubeConfig {
     char     wifi_ssid2[NVS_MAX_SSID];      // failover network
     char     wifi_password2[NVS_MAX_PASSWORD];
     bool     wifi_configured;
+    uint16_t wifi_ap_timeout_secs;          // switch to AP if WiFi fails this long (0=never)
 
     // MQTT
     char     mqtt_host[NVS_MAX_MQTT_HOST];

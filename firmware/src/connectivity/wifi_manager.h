@@ -54,4 +54,5 @@ private:
                                      const char* mqtt_host);
     static WifiState _state;
     static unsigned long _lastReconnectAttempt;
+    static unsigned long _failedSinceMs;
 };

@@ -14,8 +14,9 @@
 #include "../outputs/led.h"
 #include "../outputs/buzzer.h"
 
-WifiState WifiManager::_state           = WifiState::DISCONNECTED;
+WifiState WifiManager::_state                = WifiState::DISCONNECTED;
 unsigned long WifiManager::_lastReconnectAttempt = 0;
+unsigned long WifiManager::_failedSinceMs        = 0;
 
 // ── Custom WiFiManager parameters ────────────────────────────
 // These extra fields appear on the captive portal setup page.
@@ -47,6 +48,21 @@ void WifiManager::loop() {
     // Background reconnect if dropped
     if (_state == WifiState::DISCONNECTED || _state == WifiState::FAILED) {
         unsigned long now = millis();
+
+        // Track how long we've been failing
+        if (_failedSinceMs == 0) _failedSinceMs = now;
+
+        // Switch to AP mode after timeout (if configured)
+        if (g_config.wifi_ap_timeout_secs > 0 &&
+            now - _failedSinceMs >= (unsigned long)g_config.wifi_ap_timeout_secs * 1000UL) {
+            Logger::write('W', "WiFi", "No connection for %us — starting AP",
+                          g_config.wifi_ap_timeout_secs);
+            _failedSinceMs = 0;
+            _lastReconnectAttempt = 0;
+            startProvisioning();
+            return;
+        }
+
         if (now - _lastReconnectAttempt > WIFI_RETRY_INTERVAL) {
             _lastReconnectAttempt = now;
             if (g_config.wifi_configured) {
@@ -124,6 +140,7 @@ void WifiManager::_connectWithCredentials() {
     Logger::write('I', "WiFi", "Connected — IP: %s  RSSI: %d dBm",
                 WiFi.localIP().toString().c_str(), WiFi.RSSI());
     _state = WifiState::CONNECTED;
+    _failedSinceMs = 0;
 
     // mDNS: room-based hostname for human-friendly web access
     String hostname = String(MDNS_HOSTNAME) + "-" + String(g_config.room_name);
