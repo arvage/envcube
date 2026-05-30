@@ -151,7 +151,7 @@ td.sta{width:18%;text-align:right}
       <option value="alarm">Alarm (continuous)</option>
     </select>
     <button class="btn btn-primary" onclick="buzzerTest()">&#9654; Test</button>
-    <button class="btn btn-ghost" onclick="buzzerStop()">&#9646;&#9646; Stop</button>
+    <button class="btn btn-warn" onclick="buzzerStop()">&#9646;&#9646; Stop</button>
   </div>
   <div class="actions">
     <button class="btn btn-primary" onclick="save()">Save</button>
@@ -381,10 +381,10 @@ function renderLog(){
 function clearLog(){_logLines=[];document.getElementById('log-pre').innerHTML='';}
 function buzzerTest(){
   var p=document.getElementById('buzz-pattern').value;
-  fetch('/api/buzzer/test',{method:'POST',headers:{'Content-Type':'text/plain'},body:p});
+  fetch('/api/buzzer/test?p='+encodeURIComponent(p),{method:'POST'}).catch(function(){});
 }
 function buzzerStop(){
-  fetch('/api/buzzer/test',{method:'POST',headers:{'Content-Type':'text/plain'},body:'stop'});
+  fetch('/api/buzzer/test?p=stop',{method:'POST'}).catch(function(){});
 }
 loadConfig();loadReadings();
 setInterval(loadReadings,3000);
@@ -530,17 +530,19 @@ static void handleWeatherFetch() {
 }
 
 static void handleBuzzerTest() {
-    String pattern = _server.arg("plain");
+    // Pattern passed as URL param: /api/buzzer/test?p=beep2
+    String pattern = _server.arg("p");
     pattern.trim();
+
+    Logger::write('I', "Buzzer", "Test: '%s'", pattern.c_str());
 
     if (pattern == "stop") {
         Buzzer::stop();
     } else {
-        // Force-enable regardless of config so the test always plays
+        // Force-play regardless of buzzer_enabled / muted
         bool wasEnabled = g_config.buzzer_enabled;
-        bool wasMuted   = Buzzer::isMuted();
         g_config.buzzer_enabled = true;
-        if (wasMuted) Buzzer::mute(false);
+        Buzzer::mute(false);
 
         if      (pattern == "confirm") Buzzer::confirm();
         else if (pattern == "beep1")   Buzzer::beep(1, BUZZ_FREQ_ALERT);
@@ -548,10 +550,9 @@ static void handleBuzzerTest() {
         else if (pattern == "beep3")   Buzzer::beep(3, BUZZ_FREQ_ALERT);
         else if (pattern == "warning") Buzzer::beep(1, BUZZ_FREQ_WARN);
         else if (pattern == "alarm")   Buzzer::alarm();
+        else Logger::write('W', "Buzzer", "Unknown pattern: '%s'", pattern.c_str());
 
-        // Restore — Buzzer::loop() drives the pattern independently of these flags
         g_config.buzzer_enabled = wasEnabled;
-        if (wasMuted) Buzzer::mute(true);
     }
 
     _server.send(200, "application/json", "{\"ok\":true}");
