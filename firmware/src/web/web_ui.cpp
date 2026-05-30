@@ -532,13 +532,28 @@ static void handleWeatherFetch() {
 static void handleBuzzerTest() {
     String pattern = _server.arg("plain");
     pattern.trim();
-    if      (pattern == "confirm") Buzzer::confirm();
-    else if (pattern == "beep1")   Buzzer::beep(1, BUZZ_FREQ_ALERT);
-    else if (pattern == "beep2")   Buzzer::beep(2, BUZZ_FREQ_ALERT);
-    else if (pattern == "beep3")   Buzzer::beep(3, BUZZ_FREQ_ALERT);
-    else if (pattern == "warning") Buzzer::beep(1, BUZZ_FREQ_WARN);
-    else if (pattern == "alarm")   Buzzer::alarm();
-    else if (pattern == "stop")    Buzzer::stop();
+
+    if (pattern == "stop") {
+        Buzzer::stop();
+    } else {
+        // Force-enable regardless of config so the test always plays
+        bool wasEnabled = g_config.buzzer_enabled;
+        bool wasMuted   = Buzzer::isMuted();
+        g_config.buzzer_enabled = true;
+        if (wasMuted) Buzzer::mute(false);
+
+        if      (pattern == "confirm") Buzzer::confirm();
+        else if (pattern == "beep1")   Buzzer::beep(1, BUZZ_FREQ_ALERT);
+        else if (pattern == "beep2")   Buzzer::beep(2, BUZZ_FREQ_ALERT);
+        else if (pattern == "beep3")   Buzzer::beep(3, BUZZ_FREQ_ALERT);
+        else if (pattern == "warning") Buzzer::beep(1, BUZZ_FREQ_WARN);
+        else if (pattern == "alarm")   Buzzer::alarm();
+
+        // Restore — Buzzer::loop() drives the pattern independently of these flags
+        g_config.buzzer_enabled = wasEnabled;
+        if (wasMuted) Buzzer::mute(true);
+    }
+
     _server.send(200, "application/json", "{\"ok\":true}");
 }
 
