@@ -75,96 +75,90 @@ void MqttClient::publishReadings(const SensorReadings& r) {
 
     char topic[80];
     char payload[128];
+    uint8_t published = 0;
 
     if (r.thermal_ok) {
         _topic(topic, sizeof(topic), "temperature");
         snprintf(payload, sizeof(payload),
-                 "{\"value\":%.2f,\"unit\":\"C\",\"ok\":true}", r.temperature_c);
-        _mqtt.publish(topic, payload, true);
+                 "{\"value\":%.2f,\"unit\":\"C\"}", r.temperature_c);
+        _mqtt.publish(topic, payload, true); published++;
 
         _topic(topic, sizeof(topic), "humidity");
         snprintf(payload, sizeof(payload),
-                 "{\"value\":%.1f,\"unit\":\"%%\",\"ok\":true}", r.humidity_rh);
-        _mqtt.publish(topic, payload, true);
+                 "{\"value\":%.1f,\"unit\":\"%%\"}", r.humidity_rh);
+        _mqtt.publish(topic, payload, true); published++;
     }
 
     if (r.pressure_ok) {
         _topic(topic, sizeof(topic), "pressure");
         snprintf(payload, sizeof(payload),
-                 "{\"value\":%.1f,\"unit\":\"hPa\",\"ok\":true}", r.pressure_hpa);
-        _mqtt.publish(topic, payload, true);
+                 "{\"value\":%.1f,\"unit\":\"hPa\"}", r.pressure_hpa);
+        _mqtt.publish(topic, payload, true); published++;
     }
 
-    // CO2
     if (r.co2_ok) {
         _topic(topic, sizeof(topic), "co2");
         snprintf(payload, sizeof(payload),
-                 "{\"value\":%u,\"unit\":\"ppm\",\"ok\":true}",
-                 r.co2_ppm);
-        _mqtt.publish(topic, payload, true);
+                 "{\"value\":%u,\"unit\":\"ppm\"}", r.co2_ppm);
+        _mqtt.publish(topic, payload, true); published++;
     }
 
-    // Smoke
     if (r.smoke_ok) {
         bool detected = r.smoke_raw >= g_config.thresh_smoke_warn;
         _topic(topic, sizeof(topic), "smoke");
         snprintf(payload, sizeof(payload),
-                 "{\"value\":%s,\"raw\":%u,\"ok\":true}",
+                 "{\"value\":%s,\"raw\":%u}",
                  detected ? "true" : "false", r.smoke_raw);
-        _mqtt.publish(topic, payload, true);
+        _mqtt.publish(topic, payload, true); published++;
     }
 
-    // Air quality
     if (r.aq_ok) {
         _topic(topic, sizeof(topic), "voc_index");
-        snprintf(payload, sizeof(payload),
-                 "{\"value\":%d,\"ok\":true}", r.voc_index);
-        _mqtt.publish(topic, payload, true);
+        snprintf(payload, sizeof(payload), "{\"value\":%d}", r.voc_index);
+        _mqtt.publish(topic, payload, true); published++;
 
         _topic(topic, sizeof(topic), "nox_index");
-        snprintf(payload, sizeof(payload),
-                 "{\"value\":%d,\"ok\":true}", r.nox_index);
-        _mqtt.publish(topic, payload, true);
-
-        _topic(topic, sizeof(topic), "lux");
-        snprintf(payload, sizeof(payload),
-                 "{\"value\":%lu,\"unit\":\"lx\",\"ok\":true}",
-                 (unsigned long)r.lux);
-        _mqtt.publish(topic, payload, true);
+        snprintf(payload, sizeof(payload), "{\"value\":%d}", r.nox_index);
+        _mqtt.publish(topic, payload, true); published++;
     }
 
-    // Particulate
+    // Lux uses its own flag — independent of SGP41 (aq_ok)
+    if (r.lux_ok) {
+        _topic(topic, sizeof(topic), "lux");
+        snprintf(payload, sizeof(payload),
+                 "{\"value\":%lu,\"unit\":\"lx\"}", (unsigned long)r.lux);
+        _mqtt.publish(topic, payload, true); published++;
+    }
+
     if (r.pm_ok) {
         _topic(topic, sizeof(topic), "pm25");
         snprintf(payload, sizeof(payload),
-                 "{\"value\":%u,\"unit\":\"ug/m3\",\"ok\":true}",
-                 r.pm2_5);
-        _mqtt.publish(topic, payload, true);
+                 "{\"value\":%u,\"unit\":\"ug/m3\"}", r.pm2_5);
+        _mqtt.publish(topic, payload, true); published++;
 
         _topic(topic, sizeof(topic), "pm10");
         snprintf(payload, sizeof(payload),
-                 "{\"value\":%u,\"unit\":\"ug/m3\",\"ok\":true}",
-                 r.pm10);
-        _mqtt.publish(topic, payload, true);
+                 "{\"value\":%u,\"unit\":\"ug/m3\"}", r.pm10);
+        _mqtt.publish(topic, payload, true); published++;
     }
 
-    // Noise
     if (r.noise_ok) {
         _topic(topic, sizeof(topic), "noise_db");
         snprintf(payload, sizeof(payload),
-                 "{\"value\":%.1f,\"unit\":\"dBA\",\"ok\":true}",
-                 r.noise_db);
-        _mqtt.publish(topic, payload, true);
+                 "{\"value\":%.1f,\"unit\":\"dBA\"}", r.noise_db);
+        _mqtt.publish(topic, payload, true); published++;
     }
 
     // Presence
     if (r.presence_ok) {
         _topic(topic, sizeof(topic), "presence");
         snprintf(payload, sizeof(payload),
-                 "{\"value\":%s,\"distance_cm\":%u,\"ok\":true}",
+                 "{\"value\":%s,\"distance_cm\":%u}",
                  r.presence ? "true" : "false", r.presence_cm);
-        _mqtt.publish(topic, payload, true);
+        _mqtt.publish(topic, payload, true); published++;
     }
+
+    Logger::write('I', "MQTT", "Published %u sensor(s)", published);
 }
 
 // ── MqttClient::publishAlert ─────────────────────────────────
